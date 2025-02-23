@@ -1,6 +1,7 @@
 mod password_manager;
 mod utils;
 
+pub use utils::Auth;
 pub use utils::Config;
 pub use utils::Encryption;
 pub use utils::{Database, PasswordEntry};

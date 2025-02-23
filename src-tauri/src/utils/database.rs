@@ -21,7 +21,7 @@ pub struct PasswordEntry {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: Option<i32>,
     pub username: String,
