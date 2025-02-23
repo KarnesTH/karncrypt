@@ -1,3 +1,10 @@
+mod password_manager;
+mod utils;
+
+pub use utils::Config;
+pub use utils::Encryption;
+pub use utils::{Database, PasswordEntry};
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
