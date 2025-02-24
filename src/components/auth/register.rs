@@ -5,6 +5,7 @@ use serde::Serialize;
 #[derive(Serialize)]
 struct RegisterArgs<'a> {
     username: &'a str,
+    #[serde(rename = "masterPass")]
     master_pass: &'a str,
 }
 
@@ -126,9 +127,6 @@ pub fn Register(
                         prop:value=confirm_password
                     />
                 </div>
-
-
-
                 <div class="flex items-center justify-between">
                     <button
                         type="submit"

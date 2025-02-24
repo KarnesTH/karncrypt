@@ -5,6 +5,7 @@ use serde::Serialize;
 #[derive(Serialize)]
 struct LoginArgs<'a> {
     username: &'a str,
+    #[serde(rename = "masterPass")]
     master_pass: &'a str,
 }
 

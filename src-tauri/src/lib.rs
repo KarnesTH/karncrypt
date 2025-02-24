@@ -7,7 +7,7 @@ pub use utils::Config;
 pub use utils::Encryption;
 pub use utils::{Database, PasswordEntry};
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 /// Register a new user.
 ///
 /// # Arguments
@@ -30,7 +30,7 @@ async fn register(username: String, master_pass: String) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 /// Login a user.
 ///
 /// # Arguments

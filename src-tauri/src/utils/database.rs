@@ -122,7 +122,7 @@ impl Database {
                     url TEXT NOT NULL,
                     notes TEXT NOT NULL,
                     created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
+                    updated_at TEXT NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
                 );
             ",
