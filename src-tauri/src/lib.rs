@@ -53,6 +53,11 @@ async fn login(username: String, master_pass: String) -> Result<i32, String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command(rename_all = "camelCase")]
+async fn generate_password(length: usize) -> Result<String, String> {
+    PasswordManager::generate_password(length).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let config = Config::load().expect("error while loading config");
@@ -61,7 +66,7 @@ pub fn run() {
         .expect("error while setting up logger");
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![login, register])
+        .invoke_handler(tauri::generate_handler![login, register, generate_password])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

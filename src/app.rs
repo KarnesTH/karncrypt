@@ -2,6 +2,7 @@ use leptos::*;
 use wasm_bindgen::prelude::*;
 
 use super::components::auth::{Login, Register};
+use super::components::password_generator::PasswordGenerator;
 
 #[wasm_bindgen]
 extern "C" {
@@ -97,8 +98,7 @@ pub fn App() -> impl IntoView {
                         },
                         DashboardTab::Generator => view! {
                             <div class="bg-white shadow-sm rounded-lg p-6">
-                                <h2 class="text-lg font-semibold mb-4">"Password Generator"</h2>
-                                // Hier kommt der Password Generator
+                                <PasswordGenerator />
                             </div>
                         }
                     }}

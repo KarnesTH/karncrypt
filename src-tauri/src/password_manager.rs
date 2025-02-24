@@ -182,6 +182,19 @@ impl PasswordManager {
         self.db.read_all()
     }
 
+    /// Generate a new password.
+    ///
+    /// # Arguments
+    ///
+    /// * `length` - The length of the password to generate.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the generated password or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the password cannot be generated.
     pub fn generate_password(length: usize) -> Result<String, Box<dyn std::error::Error>> {
         if !Self::is_valid_password_length(&length.to_string()) {
             return Err("Invalid password length".into());
