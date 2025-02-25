@@ -26,6 +26,8 @@ pub fn App() -> impl IntoView {
     let (current_tab, set_current_tab) = create_signal(DashboardTab::Passwords);
     let (_user_id, set_user_id) = create_signal(None::<i32>);
 
+    let logout_icon = create_memo(move |_| "arrow-left-start-on-rectangle");
+
     spawn_local(async move {
         let response = invoke("check_is_initialized", JsValue::NULL).await;
         if let Ok(initialized) = serde_wasm_bindgen::from_value::<bool>(response) {
@@ -93,7 +95,7 @@ pub fn App() -> impl IntoView {
                                             on:click=on_logout
                                         >
                                             <Icon
-                                                icon="arrow-left-start-on-rectangle"
+                                                icon=logout_icon.into()
                                                 class="w-5 h-5 mr-2"
                                             />
                                             "Logout"

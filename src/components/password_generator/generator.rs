@@ -20,6 +20,16 @@ pub fn PasswordGenerator() -> impl IntoView {
     let (password, set_password) = create_signal(String::new());
     let (is_copied, set_is_copied) = create_signal(false);
 
+    let copied_icon = create_memo(move |_| {
+        if is_copied.get() {
+            "check"
+        } else {
+            "clipboard"
+        }
+    });
+
+    let generate_icon = create_memo(move |_| "arrow-path");
+
     view! {
         <div class="w-full">
             <h2 class="text-2xl font-bold mb-6 text-center text-white">"Passwort Generator"</h2>
@@ -70,7 +80,7 @@ pub fn PasswordGenerator() -> impl IntoView {
                     });
                 }
             >
-                <Icon icon="arrow-path" class="w-5 h-5 mr-2" />
+                <Icon icon=generate_icon.into() class="w-5 h-5 mr-2" />
                 "Generiere Passwort"
             </button>
 
@@ -102,10 +112,10 @@ pub fn PasswordGenerator() -> impl IntoView {
                         }
                         on:mouseleave=move |_| set_is_copied.set(false)
                     >
-                        <Icon
-                            icon={if is_copied.get() { "check" } else { "clipboard" }}
-                            class="w-5 h-5"
-                        />
+                    <Icon
+                        icon=copied_icon.into()
+                        class="w-5 h-5"
+                    />
                     </button>
                 </div>
             </div>

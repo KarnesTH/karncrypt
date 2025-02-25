@@ -22,6 +22,16 @@ pub fn Register(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
     let (error, set_error) = create_signal(String::new());
     let (show_password, set_show_password) = create_signal(false);
 
+    let show_password_icon = create_memo(move |_| {
+        if show_password.get() {
+            "eye-slash"
+        } else {
+            "eye"
+        }
+    });
+
+    let generate_icon = create_memo(move |_| "arrow-path");
+
     let handle_submit = move |ev: ev::SubmitEvent| {
         ev.prevent_default();
 
@@ -113,10 +123,10 @@ pub fn Register(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
                         class="absolute inset-y-0 right-0 px-3 flex items-center"
                         on:click=move |_| set_show_password.update(|show| *show = !*show)
                     >
-                        <Icon
-                            icon={if show_password.get() { "eye-slash" } else { "eye" }}
-                            class="w-5 h-5 text-gray-400 hover:text-primary-100"
-                        />
+                    <Icon
+                        icon=show_password_icon.into()
+                        class="w-5 h-5 text-gray-400 hover:text-primary-100"
+                    />
                     </button>
                 </div>
             </div>
@@ -144,7 +154,7 @@ pub fn Register(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
                         });
                     }
                 >
-                    <Icon icon="arrow-path" class="w-5 h-5 mr-2 text-primary-100" />
+                    <Icon icon=generate_icon.into() class="w-5 h-5 mr-2 text-primary-100" />
                     "Generiere sicheres Passwort"
                 </button>
             </div>
@@ -169,10 +179,10 @@ pub fn Register(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
                         class="absolute inset-y-0 right-0 px-3 flex items-center"
                         on:click=move |_| set_show_password.update(|show| *show = !*show)
                     >
-                        <Icon
-                            icon={if show_password.get() { "eye-slash" } else { "eye" }}
-                            class="w-5 h-5 text-gray-400 hover:text-primary-100"
-                        />
+                    <Icon
+                        icon=show_password_icon.into()
+                        class="w-5 h-5 text-gray-400 hover:text-primary-100"
+                    />
                     </button>
                 </div>
             </div>

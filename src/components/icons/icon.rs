@@ -1,8 +1,8 @@
 use leptos::*;
 
 #[component]
-pub fn Icon(icon: &'static str, #[prop(optional)] class: &'static str) -> impl IntoView {
-    let content = match icon {
+pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -> impl IntoView {
+    let content = move || match icon.get() {
         "eye" => include_str!("../../assets/icons/eye.svg"),
         "eye-slash" => include_str!("../../assets/icons/eye-slash.svg"),
         "arrow-path" => include_str!("../../assets/icons/arrow-path.svg"),
@@ -27,7 +27,7 @@ pub fn Icon(icon: &'static str, #[prop(optional)] class: &'static str) -> impl I
         _ => "",
     };
 
-    let new_icon = content.replace("class=\"size-6\"", &format!("class=\"{}\"", class));
+    let new_icon = move || content().replace("class=\"size-6\"", &format!("class=\"{}\"", class));
 
     view! {
         <div inner_html={new_icon} />
