@@ -1,4 +1,4 @@
-use crate::app::invoke;
+use crate::{app::invoke, components::icons::Icon};
 use leptos::*;
 use serde::Serialize;
 
@@ -10,13 +10,11 @@ struct LoginArgs<'a> {
 }
 
 #[component]
-pub fn Login(
-    #[prop(into)] on_success: Callback<i32>,
-    #[prop(into)] on_register: Callback<()>,
-) -> impl IntoView {
+pub fn Login(#[prop(into)] on_success: Callback<i32>) -> impl IntoView {
     let (username, set_username) = create_signal(String::new());
     let (password, set_password) = create_signal(String::new());
     let (error, set_error) = create_signal(String::new());
+    let (show_password, set_show_password) = create_signal(false);
 
     let handle_submit = move |ev: ev::SubmitEvent| {
         ev.prevent_default();
@@ -50,71 +48,78 @@ pub fn Login(
     };
 
     view! {
-        <div class="w-full max-w-md">
-            <form
-                on:submit=handle_submit
-                class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
-            >
-                <h2 class="text-2xl font-bold mb-6 text-center">"Melde dich an"</h2>
+        <div class="w-full max-w-md ">
+            <div class="bg-background-card rounded-lg p-6 shadow-lg">
+                <h2 class="text-2xl font-bold mb-6 text-center text-white">"Melde dich an"</h2>
 
                 {move || (!error.get().is_empty()).then(||
                     view! {
-                        <div class="mb-4 text-red-500 text-sm text-center">
+                        <div class="mb-4 text-primary-100 text-sm text-center">
                             {error.get()}
                         </div>
                     }
                 )}
 
-                <div class="mb-4">
-                    <label
-                        for="username"
-                        class="block text-gray-700 text-sm font-bold mb-2"
-                    >
-                        "Benutzername"
-                    </label>
-                    <input
-                        id="username"
-                        type="text"
-                        placeholder="Benutzername"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                        on:input=move |ev| set_username.set(event_target_value(&ev))
-                        prop:value=username
-                    />
-                </div>
+                <form
+                    on:submit=handle_submit
+                    class="w-full"
+                >
+                    <div class="mb-4">
+                        <label
+                            for="username"
+                            class="block text-white text-sm font-bold mb-2"
+                        >
+                            "Benutzername"
+                        </label>
+                        <input
+                            id="username"
+                            type="text"
+                            placeholder="Benutzername"
+                            class="shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                            on:input=move |ev| set_username.set(event_target_value(&ev))
+                            prop:value=username
+                        />
+                    </div>
 
-                <div class="mb-6">
-                    <label
-                        for="password"
-                        class="block text-gray-700 text-sm font-bold mb-2"
-                    >
-                        "Passwort"
-                    </label>
-                    <input
-                        id="password"
-                        type="password"
-                        placeholder="Passwort"
-                        class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                        on:input=move |ev| set_password.set(event_target_value(&ev))
-                        prop:value=password
-                    />
-                </div>
+                    <div class="mb-6">
+                        <label
+                            for="password"
+                            class="block text-white text-sm font-bold mb-2"
+                        >
+                            "Passwort"
+                        </label>
+                        <div class="relative">
+                            <input
+                                id="password"
+                                type={move || if show_password.get() { "text" } else { "password" }}
+                                placeholder="Passwort"
+                                class="shadow appearance-none border border-gray-600 rounded w-full py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100 pr-10"
+                                on:input=move |ev| set_password.set(event_target_value(&ev))
+                                prop:value=password
+                            />
+                            <button
+                                type="button"
+                                class="absolute inset-y-0 right-0 px-3 flex items-center"
+                                on:click=move |_| set_show_password.update(|show| *show = !*show)
+                            >
+                                <Icon
+                                    icon={if show_password.get() { "eye-slash" } else { "eye" }}
+                                    class="w-5 h-5 text-gray-400 hover:text-primary-100"
+                                />
+                            </button>
+                        </div>
+                    </div>
 
-                <div class="flex items-center justify-between">
-                    <button
-                        type="submit"
-                        class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                    >
-                        "Einloggen"
-                    </button>
-                    <button
-                        type="button"
-                        on:click=move |_| on_register.call(())
-                        class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
-                    >
-                        "Account erstellen"
-                    </button>
-                </div>
-            </form>
+                    <div class="flex justify-center">
+                        <button
+                            type="submit"
+                            class="bg-gradient-primary text-white font-bold py-2 px-8 rounded focus:outline-none hover:opacity-90 transition-opacity"
+                        >
+                            "Einloggen"
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     }
 }

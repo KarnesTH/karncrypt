@@ -9,31 +9,53 @@ struct GeneratePasswordArgs {
     length: usize,
 }
 
+#[derive(Serialize)]
+struct ClipboardArgs<'a> {
+    text: &'a str,
+}
+
 #[component]
 pub fn PasswordGenerator() -> impl IntoView {
     let (length, set_length) = create_signal(16);
     let (password, set_password) = create_signal(String::new());
+    let (is_copied, set_is_copied) = create_signal(false);
 
     view! {
-        <div class="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold mb-6 text-center">"Passwort Generator"</h2>
+        <div class="w-full">
+            <h2 class="text-2xl font-bold mb-6 text-center text-white">"Passwort Generator"</h2>
 
             <div class="mb-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2">
-                    "Passwortlänge: " {length}
+                <label class="block text-white text-sm font-bold mb-2">
+                    "Passwortlänge: "
+                    <span class="text-primary-100">{length}</span>
                 </label>
-                <input
-                    type="range"
-                    min="8"
-                    max="64"
-                    value=length
-                    class="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    on:input=move |ev| set_length.set(event_target_value(&ev).parse().unwrap_or(16))
-                />
+                <div class="relative">
+                    <input
+                        type="range"
+                        min="8"
+                        max="64"
+                        value=length
+                        class="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer border border-gray-600
+                                [&::-webkit-slider-runnable-track]:bg-background
+                                [&::-webkit-slider-runnable-track]:rounded-lg
+                                [&::-webkit-slider-runnable-track]:border-gray-600
+                                [&::-webkit-slider-thumb]:w-4
+                                [&::-webkit-slider-thumb]:h-4
+                                [&::-webkit-slider-thumb]:bg-primary-100
+                                [&::-webkit-slider-thumb]:border-2
+                                [&::-webkit-slider-thumb]:border-background
+                                [&::-webkit-slider-thumb]:rounded-full
+                                [&::-webkit-slider-thumb]:appearance-none
+                                hover:[&::-webkit-slider-thumb]:bg-primary-200
+                                focus:[&::-webkit-slider-thumb]:ring-2
+                                focus:[&::-webkit-slider-thumb]:ring-primary-100"
+                        on:input=move |ev| set_length.set(event_target_value(&ev).parse().unwrap_or(16))
+                    />
+                </div>
             </div>
 
             <button
-                class="w-full flex justify-center items-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+                class="w-full flex justify-center items-center bg-gradient-primary text-white font-bold py-2 px-4 rounded focus:outline-none hover:opacity-90 transition-opacity"
                 on:click=move |_| {
                     spawn_local(async move {
                         let args = serde_wasm_bindgen::to_value(&GeneratePasswordArgs {
@@ -48,12 +70,12 @@ pub fn PasswordGenerator() -> impl IntoView {
                     });
                 }
             >
-                <Icon icon="arrow-path" class="w-5 h-5 m-2" />
+                <Icon icon="arrow-path" class="w-5 h-5 mr-2" />
                 "Generiere Passwort"
             </button>
 
             <div class="mt-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2">
+                <label class="block text-white text-sm font-bold mb-2">
                     "Generiertes Passwort:"
                 </label>
                 <div class="flex">
@@ -61,14 +83,29 @@ pub fn PasswordGenerator() -> impl IntoView {
                         type="text"
                         value=password
                         readonly
-                        class="flex-grow shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        class="flex-grow shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
                     />
-                    // Optional: Copy Button
                     <button
-                        class="ml-2 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                        // TODO: Implement copy functionality
+                        class="ml-2 bg-primary-200 hover:bg-primary-300 text-white py-2 px-4 rounded focus:outline-none transition-colors"
+                        on:click=move |_| {
+                            let current_password = password.get();
+                            if !current_password.is_empty() {
+                                set_is_copied.set(true);
+                                spawn_local(async move {
+                                    let args = serde_wasm_bindgen::to_value(&ClipboardArgs {
+                                        text: &current_password,
+                                    }).unwrap();
+
+                                    let _ = invoke("copy_to_clipboard", args).await;
+                                });
+                            }
+                        }
+                        on:mouseleave=move |_| set_is_copied.set(false)
                     >
-                        <Icon icon="clipboard" class="w-5 h-5" />
+                        <Icon
+                            icon={if is_copied.get() { "check" } else { "clipboard" }}
+                            class="w-5 h-5"
+                        />
                     </button>
                 </div>
             </div>

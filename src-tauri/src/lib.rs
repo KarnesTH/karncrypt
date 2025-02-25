@@ -2,8 +2,9 @@ mod password_manager;
 mod utils;
 
 pub use password_manager::PasswordManager;
-// use tauri::AppHandle;
-// use tauri_plugin_dialog::DialogExt;
+use tauri::AppHandle;
+use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 pub use utils::Auth;
 pub use utils::Config;
 pub use utils::Encryption;
@@ -24,12 +25,27 @@ pub use utils::{Database, PasswordEntry};
 /// # Errors
 ///
 /// If the user cannot be registered.
-async fn register(username: String, master_pass: String) -> Result<(), String> {
-    let pm = PasswordManager::new(&master_pass).map_err(|e| e.to_string())?;
+async fn register(
+    app_handle: AppHandle,
+    username: String,
+    master_pass: String,
+) -> Result<(), String> {
+    let confirmed = app_handle
+        .dialog()
+        .message("Das Master-Passwort kann nicht wiederhergestellt werden. Bitte stellen Sie sicher, dass Sie es sicher aufbewahren.")
+        .title("Warnung")
+        .buttons(MessageDialogButtons::OkCancel)
+        .blocking_show();
 
-    let auth = Auth::new(pm.db);
-    auth.register(&username, &master_pass)
-        .map_err(|e| e.to_string())
+    if confirmed {
+        let pm = PasswordManager::new(&master_pass).map_err(|e| e.to_string())?;
+        let auth = Auth::new(pm.db);
+        auth.register(&username, &master_pass)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err("Setup abgebrochen".to_string())
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -74,12 +90,26 @@ async fn generate_password(length: usize) -> Result<String, String> {
 }
 
 #[tauri::command]
+/// Check if the app is initialized.
+///
+/// # Returns
+///
+/// A Result containing a boolean indicating if the app is initialized or an error.
 async fn check_is_initialized() -> Result<bool, String> {
     let config = Config::load().map_err(|e| e.to_string())?;
     Ok(config.app.is_initialized)
 }
 
 #[tauri::command]
+/// Complete the app setup.
+///
+/// # Arguments
+///
+/// * `custom_path` - An optional custom path for the database.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
 async fn complete_setup(custom_path: Option<String>) -> Result<(), String> {
     let mut config = Config::load().map_err(|e| e.to_string())?;
     config.app.is_initialized = true;
@@ -87,6 +117,14 @@ async fn complete_setup(custom_path: Option<String>) -> Result<(), String> {
     config.save().map_err(|e| e.to_string())?;
 
     Ok(())
+}
+
+#[tauri::command]
+async fn copy_to_clipboard(app_handle: AppHandle, text: String) -> Result<(), String> {
+    app_handle
+        .clipboard()
+        .write_text(text)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -99,6 +137,7 @@ pub fn run() {
         .setup_logger()
         .expect("error while setting up logger");
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![
@@ -106,7 +145,8 @@ pub fn run() {
             register,
             generate_password,
             check_is_initialized,
-            complete_setup
+            complete_setup,
+            copy_to_clipboard
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
