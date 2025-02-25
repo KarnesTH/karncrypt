@@ -25,7 +25,7 @@ pub fn Login(
         let password = password.get();
 
         if username.is_empty() || password.is_empty() {
-            set_error.set("Please fill in all fields".to_string());
+            set_error.set("Bitte fülle alle Felder aus".to_string());
             return;
         }
 
@@ -43,7 +43,7 @@ pub fn Login(
                     on_success.call(user_id);
                 }
                 Err(_) => {
-                    set_error.set("Login failed".to_string());
+                    set_error.set("Login fehlgeschlagen".to_string());
                 }
             }
         });
@@ -55,7 +55,7 @@ pub fn Login(
                 on:submit=handle_submit
                 class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
             >
-                <h2 class="text-2xl font-bold mb-6 text-center">"Login"</h2>
+                <h2 class="text-2xl font-bold mb-6 text-center">"Melde dich an"</h2>
 
                 {move || (!error.get().is_empty()).then(||
                     view! {
@@ -70,12 +70,12 @@ pub fn Login(
                         for="username"
                         class="block text-gray-700 text-sm font-bold mb-2"
                     >
-                        "Username"
+                        "Benutzername"
                     </label>
                     <input
                         id="username"
                         type="text"
-                        placeholder="Enter username"
+                        placeholder="Benutzername"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         on:input=move |ev| set_username.set(event_target_value(&ev))
                         prop:value=username
@@ -87,12 +87,12 @@ pub fn Login(
                         for="password"
                         class="block text-gray-700 text-sm font-bold mb-2"
                     >
-                        "Master Password"
+                        "Passwort"
                     </label>
                     <input
                         id="password"
                         type="password"
-                        placeholder="Enter master password"
+                        placeholder="Passwort"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         on:input=move |ev| set_password.set(event_target_value(&ev))
                         prop:value=password
@@ -104,14 +104,14 @@ pub fn Login(
                         type="submit"
                         class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                     >
-                        "Sign In"
+                        "Einloggen"
                     </button>
                     <button
                         type="button"
                         on:click=move |_| on_register.call(())
                         class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
                     >
-                        "Register"
+                        "Account erstellen"
                     </button>
                 </div>
             </form>

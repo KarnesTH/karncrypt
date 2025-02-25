@@ -27,17 +27,17 @@ pub fn Register(
         let confirm = confirm_password.get();
 
         if username.is_empty() || password.is_empty() {
-            set_error.set("Please fill in all fields".to_string());
+            set_error.set("Bitte fülle alle Felder aus.".to_string());
             return;
         }
 
         if password != confirm {
-            set_error.set("Passwords do not match".to_string());
+            set_error.set("Passwörter sind nicht gleich.".to_string());
             return;
         }
 
         if password.len() < 8 {
-            set_error.set("Password must be at least 8 characters long".to_string());
+            set_error.set("Passwörter müssen mindestens 8 Zeichen haben".to_string());
             return;
         }
 
@@ -55,7 +55,7 @@ pub fn Register(
                     on_success.call(());
                 }
                 Err(_) => {
-                    set_error.set("Registration failed".to_string());
+                    set_error.set("Registrierung Fehlgeschlagen.".to_string());
                 }
             }
         });
@@ -67,7 +67,7 @@ pub fn Register(
                 on:submit=handle_submit
                 class="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
             >
-                <h2 class="text-2xl font-bold mb-6 text-center">"Register"</h2>
+                <h2 class="text-2xl font-bold mb-6 text-center">"Erstelle ein Account"</h2>
 
                 {move || (!error.get().is_empty()).then(||
                     view! {
@@ -82,12 +82,12 @@ pub fn Register(
                         for="username"
                         class="block text-gray-700 text-sm font-bold mb-2"
                     >
-                        "Username"
+                        "Benutzername"
                     </label>
                     <input
                         id="username"
                         type="text"
-                        placeholder="Choose a username"
+                        placeholder="Wähle einen Benutzernamen"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         on:input=move |ev| set_username.set(event_target_value(&ev))
                         prop:value=username
@@ -99,12 +99,12 @@ pub fn Register(
                         for="password"
                         class="block text-gray-700 text-sm font-bold mb-2"
                     >
-                        "Master Password"
+                        "Master Passwort"
                     </label>
                     <input
                         id="password"
                         type="password"
-                        placeholder="Choose a strong password"
+                        placeholder="Wähle ein starkes Passwort"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         on:input=move |ev| set_password.set(event_target_value(&ev))
                         prop:value=password
@@ -116,12 +116,12 @@ pub fn Register(
                         for="confirm-password"
                         class="block text-gray-700 text-sm font-bold mb-2"
                     >
-                        "Confirm Master Password"
+                        "Bestätige dein Passwort"
                     </label>
                     <input
                         id="confirm-password"
                         type="password"
-                        placeholder="Confirm your password"
+                        placeholder="Bestätige dein Passwort"
                         class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         on:input=move |ev| set_confirm_password.set(event_target_value(&ev))
                         prop:value=confirm_password
@@ -132,14 +132,14 @@ pub fn Register(
                         type="submit"
                         class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                     >
-                        "Register"
+                        "Erstellen"
                     </button>
                     <button
                         type="button"
                         on:click=move |_| on_back.call(())
                         class="inline-block align-baseline font-bold text-sm text-blue-500 hover:text-blue-800"
                     >
-                        "Back to Login"
+                        "Zurück zum Login"
                     </button>
                 </div>
             </form>
