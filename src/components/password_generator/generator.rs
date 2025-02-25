@@ -1,4 +1,4 @@
-use crate::app::invoke;
+use crate::{app::invoke, components::icons::Icon};
 
 use leptos::*;
 
@@ -16,11 +16,11 @@ pub fn PasswordGenerator() -> impl IntoView {
 
     view! {
         <div class="w-full max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold mb-6 text-center">"Password Generator"</h2>
+            <h2 class="text-2xl font-bold mb-6 text-center">"Passwort Generator"</h2>
 
             <div class="mb-6">
                 <label class="block text-gray-700 text-sm font-bold mb-2">
-                    "Password Length: " {length}
+                    "Passwortlänge: " {length}
                 </label>
                 <input
                     type="range"
@@ -33,7 +33,7 @@ pub fn PasswordGenerator() -> impl IntoView {
             </div>
 
             <button
-                class="w-full bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
+                class="w-full flex justify-center items-center bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out"
                 on:click=move |_| {
                     spawn_local(async move {
                         let args = serde_wasm_bindgen::to_value(&GeneratePasswordArgs {
@@ -48,12 +48,13 @@ pub fn PasswordGenerator() -> impl IntoView {
                     });
                 }
             >
-                "Generate Password"
+                <Icon icon="arrow-path" class="w-5 h-5 m-2" />
+                "Generiere Passwort"
             </button>
 
             <div class="mt-6">
                 <label class="block text-gray-700 text-sm font-bold mb-2">
-                    "Generated Password:"
+                    "Generiertes Passwort:"
                 </label>
                 <div class="flex">
                     <input
@@ -64,10 +65,10 @@ pub fn PasswordGenerator() -> impl IntoView {
                     />
                     // Optional: Copy Button
                     <button
-                        class="ml-2 bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        class="ml-2 bg-gray-500 hover:bg-gray-700 text-white py-2 px-4 rounded focus:outline-none focus:shadow-outline"
                         // TODO: Implement copy functionality
                     >
-                        "Copy"
+                        <Icon icon="clipboard" class="w-5 h-5" />
                     </button>
                 </div>
             </div>
