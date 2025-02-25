@@ -8,6 +8,13 @@ use std::path::PathBuf;
 pub struct Config {
     pub logging: LogConfig,
     pub database: DatabaseConfig,
+    pub app: AppConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub is_initialized: bool,
+    pub db_custom_path: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,14 +36,16 @@ impl Default for Config {
             database: DatabaseConfig {
                 db_name: "pass.db".to_string(),
             },
+            app: AppConfig {
+                is_initialized: false,
+                db_custom_path: None,
+            },
         }
     }
 }
 
 impl Config {
     /// Load the configuration from the config file.
-    ///
-    /// If the config file does not exist, create it with the default configuration.
     ///
     /// # Returns
     ///
@@ -49,20 +58,35 @@ impl Config {
         let config_dir = Self::get_config_dir()?;
         let config_path = config_dir.join("config.toml");
 
-        let config = if config_path.exists() {
+        if config_path.exists() {
             let config_file = std::fs::read_to_string(config_path)?;
-            toml::from_str(&config_file)?
+            Ok(toml::from_str(&config_file)?)
         } else {
             let config = Config::default();
-            let config_file = toml::to_string_pretty(&config)?;
-            std::fs::write(config_path, config_file)?;
-            config
-        };
-
-        Ok(config)
+            config.save()?;
+            Ok(config)
+        }
     }
 
     /// Save the configuration to the config file.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the Config struct or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the config file cannot be written to.
+    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let config_dir = Self::get_config_dir()?;
+        let config_path = config_dir.join("config.toml");
+        let config_file = toml::to_string_pretty(&self)?;
+        std::fs::write(config_path, config_file)?;
+
+        Ok(())
+    }
+
+    /// Get the config directory.
     ///
     /// # Returns
     ///
@@ -149,8 +173,12 @@ impl Config {
     ///
     /// If the database file path cannot be created.
     pub fn get_db_path(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let config_dir = Self::get_config_dir()?;
-        Ok(config_dir.join(&self.database.db_name))
+        if let Some(path) = &self.app.db_custom_path {
+            Ok(PathBuf::from(path))
+        } else {
+            let config_dir = Self::get_config_dir()?;
+            Ok(config_dir.join(&self.database.db_name))
+        }
     }
 }
 
