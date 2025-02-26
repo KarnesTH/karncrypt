@@ -4,6 +4,7 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 struct VerifyPasswordArgs<'a> {
+    #[serde(rename = "masterPass")]
     master_pass: &'a str,
 }
 
@@ -84,7 +85,8 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                     </button>
                 </div>
 
-                {if !password_verified.get() {
+                {move || {
+                    if !password_verified.get() {
                     view! {
                         <form on:submit=verify_password class="space-y-4">
                             <div>
@@ -100,14 +102,16 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                                 />
                             </div>
 
-                            {if !error.get().is_empty() {
-                                view! {
-                                    <div class="text-primary-100 text-sm">
-                                        {error.get()}
-                                    </div>
+                            {move || {
+                                if !error.get().is_empty() {
+                                    view! {
+                                        <div class="text-primary-100 text-sm">
+                                            {error.get()}
+                                        </div>
+                                    }
+                                } else {
+                                    view! { <div/> }
                                 }
-                            } else {
-                                view! { <div/> }
                             }}
 
                             <button
@@ -118,31 +122,32 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                             </button>
                         </form>
                         }.into_view()
-                } else {
-                    view! {
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-white text-sm font-bold mb-2">
-                                    "Passwort"
-                                </label>
-                                <div class="flex">
-                                    <input
-                                        type="text"
-                                        readonly
-                                        class="flex-grow p-2 rounded-l bg-background text-white border border-r-0 border-gray-600 focus:outline-none"
-                                        prop:value=password.get()
-                                    />
-                                    <button
-                                        class="px-4 rounded-r bg-primary-200 hover:bg-primary-300 text-white border border-l-0 border-primary-200 hover:border-primary-300"
-                                        on:click=move |_| copy_to_clipboard()
-                                        on:mouseleave=move |_| set_is_copied.set(false)
-                                    >
-                                        <Icon icon=copy_icon.into() class="w-5 h-5" />
-                                    </button>
+                    } else {
+                        view! {
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-white text-sm font-bold mb-2">
+                                        "Passwort"
+                                    </label>
+                                    <div class="flex">
+                                        <input
+                                            type="text"
+                                            readonly
+                                            class="flex-grow p-2 rounded-l bg-background text-white border border-r-0 border-gray-600 focus:outline-none"
+                                            prop:value=password.get()
+                                        />
+                                        <button
+                                            class="px-4 rounded-r bg-primary-200 hover:bg-primary-300 text-white border border-l-0 border-primary-200 hover:border-primary-300"
+                                            on:click=move |_| copy_to_clipboard()
+                                            on:mouseleave=move |_| set_is_copied.set(false)
+                                        >
+                                            <Icon icon=copy_icon.into() class="w-5 h-5" />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    }.into_view()
+                        }.into_view()
+                    }
                 }}
             </div>
         </div>

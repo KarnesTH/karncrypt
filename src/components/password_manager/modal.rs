@@ -98,7 +98,7 @@ pub fn PasswordModal(
                             <div class="relative">
                                 <input
                                     type=move || if show_password.get() { "text" } else { "password" }
-                                    value=password
+                                    prop:value=password
                                     class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100 pr-20"
                                     on:input=move |ev| set_password.set(event_target_value(&ev))
                                 />

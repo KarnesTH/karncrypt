@@ -89,15 +89,17 @@ pub fn TableItem(
                 </div>
             </td>
 
-            {if show_password_dialog.get() {
-                view! {
-                    <PasswordDialog
-                        password=item.get().password
-                        on_close=move |_| set_show_password_dialog.set(false)
-                    />
-                }.into_view()
-            } else {
-                view! { <div/> }.into_view()
+            {move || {
+                if show_password_dialog.get() {
+                    view! {
+                        <PasswordDialog
+                            password=item.get().password
+                            on_close=move |_| set_show_password_dialog.set(false)
+                        />
+                    }.into_view()
+                } else {
+                    view! { <div/> }.into_view()
+                }
             }}
         </tr>
     }
