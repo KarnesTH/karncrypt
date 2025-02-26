@@ -31,72 +31,74 @@ pub fn PasswordGenerator() -> impl IntoView {
     let generate_icon = create_memo(move |_| "arrow-path");
 
     view! {
-        <div class="w-full">
-            <h2 class="text-2xl font-bold mb-6 text-center text-white">"Passwort Generator"</h2>
+        <div class="w-full flex gap-6">
+            <div class="w-1/2">
+                <h2 class="text-2xl font-bold mb-6 text-white">"Passwort Generator"</h2>
 
-            <div class="mb-6">
-                <label class="block text-white text-sm font-bold mb-2">
-                    "Passwortlänge: "
-                    <span class="text-primary-100">{length}</span>
-                </label>
-                <div class="relative">
-                    <input
-                        type="range"
-                        min="8"
-                        max="64"
-                        value=length
-                        class="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer border border-gray-600
-                                [&::-webkit-slider-runnable-track]:bg-background
-                                [&::-webkit-slider-runnable-track]:rounded-lg
-                                [&::-webkit-slider-runnable-track]:border-gray-600
-                                [&::-webkit-slider-thumb]:w-4
-                                [&::-webkit-slider-thumb]:h-4
-                                [&::-webkit-slider-thumb]:bg-primary-100
-                                [&::-webkit-slider-thumb]:border-2
-                                [&::-webkit-slider-thumb]:border-background
-                                [&::-webkit-slider-thumb]:rounded-full
-                                [&::-webkit-slider-thumb]:appearance-none
-                                hover:[&::-webkit-slider-thumb]:bg-primary-200
-                                focus:[&::-webkit-slider-thumb]:ring-2
-                                focus:[&::-webkit-slider-thumb]:ring-primary-100"
-                        on:input=move |ev| set_length.set(event_target_value(&ev).parse().unwrap_or(16))
-                    />
+                <div class="mb-6">
+                    <label class="block text-white text-sm font-bold mb-2">
+                        "Passwortlänge: "
+                        <span class="text-primary-100">{length}</span>
+                    </label>
+                    <div class="relative">
+                        <input
+                            type="range"
+                            min="8"
+                            max="64"
+                            value=length
+                            class="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer border border-gray-600
+                                    [&::-webkit-slider-runnable-track]:bg-background
+                                    [&::-webkit-slider-runnable-track]:rounded-lg
+                                    [&::-webkit-slider-runnable-track]:border-gray-600
+                                    [&::-webkit-slider-thumb]:w-4
+                                    [&::-webkit-slider-thumb]:h-4
+                                    [&::-webkit-slider-thumb]:bg-primary-100
+                                    [&::-webkit-slider-thumb]:border-2
+                                    [&::-webkit-slider-thumb]:border-background
+                                    [&::-webkit-slider-thumb]:rounded-full
+                                    [&::-webkit-slider-thumb]:appearance-none
+                                    hover:[&::-webkit-slider-thumb]:bg-primary-200
+                                    focus:[&::-webkit-slider-thumb]:ring-2
+                                    focus:[&::-webkit-slider-thumb]:ring-primary-100"
+                            on:input=move |ev| set_length.set(event_target_value(&ev).parse().unwrap_or(16))
+                        />
+                    </div>
                 </div>
+
+                <button
+                    class="w-full flex justify-center items-center bg-gradient-primary text-white font-bold py-2 px-4 rounded focus:outline-none hover:opacity-90 transition-opacity"
+                    on:click=move |_| {
+                        spawn_local(async move {
+                            let args = serde_wasm_bindgen::to_value(&GeneratePasswordArgs {
+                                length: length.get()
+                            }).unwrap();
+
+                            let response = invoke("generate_password", args).await;
+
+                            if let Ok(new_pass) = serde_wasm_bindgen::from_value(response) {
+                                set_password.set(new_pass);
+                            }
+                        });
+                    }
+                >
+                    <Icon icon=generate_icon.into() class="w-5 h-5 mr-2" />
+                    "Generiere Passwort"
+                </button>
             </div>
 
-            <button
-                class="w-full flex justify-center items-center bg-gradient-primary text-white font-bold py-2 px-4 rounded focus:outline-none hover:opacity-90 transition-opacity"
-                on:click=move |_| {
-                    spawn_local(async move {
-                        let args = serde_wasm_bindgen::to_value(&GeneratePasswordArgs {
-                            length: length.get()
-                        }).unwrap();
-
-                        let response = invoke("generate_password", args).await;
-
-                        if let Ok(new_pass) = serde_wasm_bindgen::from_value(response) {
-                            set_password.set(new_pass);
-                        }
-                    });
-                }
-            >
-                <Icon icon=generate_icon.into() class="w-5 h-5 mr-2" />
-                "Generiere Passwort"
-            </button>
-
-            <div class="mt-6">
-                <label class="block text-white text-sm font-bold mb-2">
-                    "Generiertes Passwort:"
-                </label>
-                <div class="flex">
-                    <input
-                        type="text"
-                        value=password
+            <div class="w-1/2">
+                <div class="relative group h-full">
+                    <textarea
                         readonly
-                        class="flex-grow shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                        prop:value=password
+                        class="w-full h-full min-h-[200px] p-4 bg-background border-2 border-primary-100 rounded text-white resize-none focus:outline-none focus:border-primary-200
+                            text-xl text-center flex items-center justify-center
+                            leading-relaxed tracking-wide
+                            transition-opacity duration-200 ease-in-out"
+                        style="display: flex; align-items: center; padding-top: 40px;"
                     />
                     <button
-                        class="ml-2 bg-primary-200 hover:bg-primary-300 text-white py-2 px-4 rounded focus:outline-none transition-colors"
+                        class="absolute top-2 right-2 p-2 rounded-full bg-transparent opacity-0 group-hover:opacity-100 transition-opacity"
                         on:click=move |_| {
                             let current_password = password.get();
                             if !current_password.is_empty() {
@@ -112,10 +114,23 @@ pub fn PasswordGenerator() -> impl IntoView {
                         }
                         on:mouseleave=move |_| set_is_copied.set(false)
                     >
-                    <Icon
-                        icon=copied_icon.into()
-                        class="w-5 h-5"
-                    />
+                        {move || {
+                            if is_copied.get() {
+                                view! {
+                                    <Icon
+                                        icon=copied_icon.into()
+                                        class="w-5 h-5 text-green-500"
+                                    />
+                                }
+                            } else {
+                                view! {
+                                    <Icon
+                                        icon=copied_icon.into()
+                                        class="w-5 h-5 text-primary-100"
+                                    />
+                                }
+                            }
+                        }}
                     </button>
                 </div>
             </div>
