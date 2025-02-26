@@ -2,6 +2,7 @@ use leptos::*;
 use wasm_bindgen::prelude::*;
 
 use crate::components::icons::Icon;
+use crate::components::password_manager::PasswordManager;
 
 use super::components::auth::Login;
 use super::components::password_generator::PasswordGenerator;
@@ -24,7 +25,6 @@ pub fn App() -> impl IntoView {
     let (is_initialized, set_is_initialized) = create_signal(false);
     let (is_authenticated, set_is_authenticated) = create_signal(false);
     let (current_tab, set_current_tab) = create_signal(DashboardTab::Passwords);
-    let (_user_id, set_user_id) = create_signal(None::<i32>);
 
     let logout_icon = create_memo(move |_| "arrow-left-start-on-rectangle");
 
@@ -35,14 +35,17 @@ pub fn App() -> impl IntoView {
         }
     });
 
-    let on_auth_success = move |id: i32| {
-        set_user_id.set(Some(id));
+    let on_auth_success = move |_| {
         set_is_authenticated.set(true);
     };
 
     let on_logout = move |_| {
-        set_is_authenticated.set(false);
-        set_user_id.set(None);
+        spawn_local(async move {
+            let response = invoke("logout", JsValue::NULL).await;
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
+                set_is_authenticated.set(false);
+            }
+        });
     };
 
     view! {
@@ -73,7 +76,7 @@ pub fn App() -> impl IntoView {
                                                 )
                                                 on:click=move |_| set_current_tab.set(DashboardTab::Passwords)
                                             >
-                                                "Passwords"
+                                                "Passwörter"
                                             </button>
                                             <button
                                                 class=move || format!("inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {}",
@@ -108,8 +111,7 @@ pub fn App() -> impl IntoView {
                             {move || match current_tab.get() {
                                 DashboardTab::Passwords => view! {
                                     <div class="bg-background-card shadow-lg rounded-lg p-6">
-                                        <h2 class="text-lg font-semibold mb-4 text-white">"Your Passwords"</h2>
-                                        // Hier kommt später die Passwort-Tabelle
+                                        <PasswordManager />
                                     </div>
                                 }.into_view(),
                                 DashboardTab::Generator => view! {

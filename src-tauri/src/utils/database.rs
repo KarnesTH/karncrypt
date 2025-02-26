@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use chrono::Utc;
+use log::{error, info};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +9,7 @@ use crate::utils::Encryption;
 
 use super::models::Model;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PasswordEntry {
     pub id: Option<i32>,
     pub user_id: i32,
@@ -21,7 +22,7 @@ pub struct PasswordEntry {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct User {
     pub id: Option<i32>,
     pub username: String,
@@ -30,7 +31,6 @@ pub struct User {
     pub last_login: String,
 }
 
-#[derive(Debug)]
 pub struct Database {
     pub connection: Connection,
     pub path: PathBuf,
@@ -144,6 +144,7 @@ impl Database {
     ///
     /// If the insertion fails.
     pub fn create<T: Model>(&self, model: &T) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Creating new {} entry", T::table_name());
         let params = model.to_params();
         let fields: Vec<&str> = params.iter().map(|(name, _)| *name).collect();
         let placeholders: Vec<String> = (1..=params.len()).map(|i| format!("?{}", i)).collect();
@@ -156,9 +157,17 @@ impl Database {
         );
 
         let values: Vec<&dyn rusqlite::ToSql> = params.iter().map(|(_, value)| *value).collect();
-        self.connection.execute(&query, &values[..])?;
 
-        Ok(())
+        match self.connection.execute(&query, &values[..]) {
+            Ok(_) => {
+                info!("Successfully created {} entry", T::table_name());
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to create {} entry: {}", T::table_name(), e);
+                Err(e.into())
+            }
+        }
     }
 
     /// Read all entries for a model.
@@ -171,6 +180,7 @@ impl Database {
     ///
     /// If the query fails.
     pub fn read_all<T: Model>(&self) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+        info!("Reading all entries from {}", T::table_name());
         let mut stmt = self
             .connection
             .prepare(&format!("SELECT * FROM {}", T::table_name()))?;
@@ -179,6 +189,11 @@ impl Database {
         let mut result = Vec::new();
         for entry in entries {
             result.push(entry?);
+        }
+
+        match result.len() {
+            0 => info!("No entries found in {}", T::table_name()),
+            n => info!("Found {} entries in {}", n, T::table_name()),
         }
 
         Ok(result)
@@ -198,6 +213,7 @@ impl Database {
     ///
     /// If the query fails.
     pub fn read_by_id<T: Model>(&self, id: i32) -> Result<T, Box<dyn std::error::Error>> {
+        info!("Reading {} entry with id {}", T::table_name(), id);
         let mut stmt = self
             .connection
             .prepare(&format!("SELECT * FROM {} WHERE id = ?1", T::table_name()))?;
@@ -220,6 +236,7 @@ impl Database {
     ///
     /// If the update fails.
     pub fn update<T: Model>(&self, model: &T) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Updating {} entry", T::table_name());
         let params = model.to_params();
         let fields: Vec<String> = params
             .iter()
@@ -240,9 +257,16 @@ impl Database {
             params.iter().map(|(_, value)| *value).collect();
         param_values.push(&id);
 
-        self.connection.execute(&query, &param_values[..])?;
-
-        Ok(())
+        match self.connection.execute(&query, &param_values[..]) {
+            Ok(_) => {
+                info!("Successfully updated {} entry", T::table_name());
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to update {} entry: {}", T::table_name(), e);
+                Err(e.into())
+            }
+        }
     }
 
     /// Delete a model entry by ID.
@@ -255,12 +279,21 @@ impl Database {
     ///
     /// A Result containing a unit or an error.
     pub fn delete<T: Model>(&self, id: i32) -> Result<(), Box<dyn std::error::Error>> {
-        self.connection.execute(
+        info!("Deleting {} entry with id {}", T::table_name(), id);
+
+        match self.connection.execute(
             &format!("DELETE FROM {} WHERE id = ?1", T::table_name()),
             [id],
-        )?;
-
-        Ok(())
+        ) {
+            Ok(_) => {
+                info!("Successfully deleted {} entry", T::table_name());
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to delete {} entry: {}", T::table_name(), e);
+                Err(e.into())
+            }
+        }
     }
 }
 

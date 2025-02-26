@@ -5,7 +5,6 @@ use ring::{
 };
 use std::num::NonZeroU32;
 
-#[derive(Debug)]
 pub struct Encryption {
     key: aead::LessSafeKey,
 }

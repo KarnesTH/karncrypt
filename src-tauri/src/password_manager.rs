@@ -1,9 +1,10 @@
 use ring::rand::{SecureRandom, SystemRandom};
 
-use crate::{Config, Database, PasswordEntry};
+use crate::{Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
 
 pub struct PasswordManager {
     pub db: Database,
+    token_manager: TokenManager,
 }
 
 impl PasswordManager {
@@ -35,16 +36,103 @@ impl PasswordManager {
             new_salt
         };
 
+        let encryption = Encryption::new(master_pass, &salt);
         let db = Database::new(config.get_db_path()?, master_pass, &salt)?;
+        let token_manager = TokenManager::new(config_dir, encryption);
 
-        Ok(Self { db })
+        Ok(Self { db, token_manager })
+    }
+
+    /// Login to an new session.
+    ///
+    /// # Arguments
+    ///
+    /// * `username` - The username to login.
+    /// * `master_pass` - The master password to use for the database.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the user's ID or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the user cannot be logged in.
+    pub fn login(
+        &mut self,
+        username: &str,
+        master_pass: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if self.token_manager.has_valid_session() {
+            self.token_manager.clear_session()?;
+        }
+
+        let auth = Auth::new(&self.db);
+        let user_id = auth.login(username, master_pass)?;
+
+        self.token_manager.create_session(master_pass, user_id)?;
+
+        Ok(())
+    }
+
+    /// Logout of the current session.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the session cannot be cleared.
+    pub fn logout(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.token_manager.clear_session()
+    }
+
+    /// Check if the user is logged in.
+    ///
+    /// # Returns
+    ///
+    /// A boolean indicating if the user is logged in.
+    pub fn is_logged_in(&self) -> bool {
+        self.token_manager.has_valid_session()
+    }
+
+    /// Cleanup any session tokens on startup.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the session token cannot be removed.
+    pub fn cleanup_on_startup() -> Result<(), Box<dyn std::error::Error>> {
+        let config_dir = Config::get_config_dir()?;
+        let session_path = config_dir.join(".session_token");
+
+        if session_path.exists() {
+            std::fs::remove_file(&session_path)?;
+        }
+
+        Ok(())
+    }
+
+    /// Cleanup any session tokens on exit.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the session token cannot be removed.
+    pub fn cleanup_on_exit(&self) -> Result<(), Box<dyn std::error::Error>> {
+        self.token_manager.clear_session()
     }
 
     /// Add a new password entry to the database.
     ///
     /// # Arguments
     ///
-    /// * `user_id` - The ID of the user to add the password for.
     /// * `service` - The name of the service the password is for.
     /// * `username` - The username for the service.
     /// * `password` - The password for the service.
@@ -61,13 +149,15 @@ impl PasswordManager {
     /// If the password entry cannot be added to the database.
     pub fn add_password(
         &self,
-        user_id: i32,
         service: String,
         username: String,
         password: String,
         url: String,
         notes: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let session = self.token_manager.get_session()?;
+        let user_id = session.get_user_id();
+
         let notes = if let Some(notes) = notes {
             if notes.len() > 1000 {
                 return Err("Notes must be less than 1000 characters".into());
@@ -123,6 +213,9 @@ impl PasswordManager {
         url: String,
         notes: Option<String>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let session = self.token_manager.get_session()?;
+        let user_id = session.get_user_id();
+
         let notes = if let Some(notes) = notes {
             if notes.len() > 1000 {
                 return Err("Notes must be less than 1000 characters".into());
@@ -135,7 +228,7 @@ impl PasswordManager {
 
         let model = PasswordEntry {
             id: Some(id),
-            user_id: 0,
+            user_id,
             service,
             username,
             password,
@@ -164,6 +257,14 @@ impl PasswordManager {
     ///
     /// If the password entry cannot be deleted.
     pub fn delete_password(&self, id: i32) -> Result<(), Box<dyn std::error::Error>> {
+        let session = self.token_manager.get_session()?;
+
+        let password = self.db.read_by_id::<PasswordEntry>(id)?;
+
+        if password.user_id != session.get_user_id() {
+            return Err("Unauthorized".into());
+        }
+
         self.db.delete::<PasswordEntry>(id)?;
 
         Ok(())
@@ -179,7 +280,14 @@ impl PasswordManager {
     ///
     /// If the password entries cannot be retrieved.
     pub fn get_passwords(&self) -> Result<Vec<PasswordEntry>, Box<dyn std::error::Error>> {
-        self.db.read_all()
+        let session = self.token_manager.get_session()?;
+        let user_id = session.get_user_id();
+
+        let passwords = self.db.read_all::<PasswordEntry>()?;
+        Ok(passwords
+            .into_iter()
+            .filter(|p| p.user_id == user_id)
+            .collect())
     }
 
     /// Generate a new password.
@@ -268,5 +376,28 @@ impl PasswordManager {
         } else {
             false
         }
+    }
+
+    /// Verify the master password.
+    ///
+    /// # Arguments
+    ///
+    /// * `master_pass` - The master password to verify
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a boolean indicating if the password is correct
+    ///
+    /// # Errors
+    ///
+    /// If the verification fails
+    pub fn verify_master_password(
+        &self,
+        master_pass: &str,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let test_key = self.db.encryption.get_key(master_pass)?;
+        let current_key = self.db.encryption.get_key(master_pass)?;
+
+        Ok(test_key == current_key)
     }
 }

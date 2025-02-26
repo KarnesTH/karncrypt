@@ -10,7 +10,7 @@ struct LoginArgs<'a> {
 }
 
 #[component]
-pub fn Login(#[prop(into)] on_success: Callback<i32>) -> impl IntoView {
+pub fn Login(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
     let (username, set_username) = create_signal(String::new());
     let (password, set_password) = create_signal(String::new());
     let (error, set_error) = create_signal(String::new());
@@ -44,9 +44,9 @@ pub fn Login(#[prop(into)] on_success: Callback<i32>) -> impl IntoView {
 
             let response = invoke("login", args).await;
 
-            match serde_wasm_bindgen::from_value::<i32>(response) {
-                Ok(user_id) => {
-                    on_success.call(user_id);
+            match serde_wasm_bindgen::from_value::<()>(response) {
+                Ok(_) => {
+                    on_success.call(());
                 }
                 Err(_) => {
                     set_error.set("Login fehlgeschlagen".to_string());

@@ -1,14 +1,15 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use chrono::Utc;
+use log::{error, info};
 
 use super::database::{Database, User};
 
-pub struct Auth {
-    pub db: Database,
+pub struct Auth<'a> {
+    pub db: &'a Database,
 }
 
-impl Auth {
+impl<'a> Auth<'a> {
     /// Create a new Auth instance.
     ///
     /// # Arguments
@@ -18,7 +19,7 @@ impl Auth {
     /// # Returns
     ///
     /// A new Auth instance.
-    pub fn new(db: Database) -> Self {
+    pub fn new(db: &'a Database) -> Self {
         Self { db }
     }
 
@@ -41,6 +42,8 @@ impl Auth {
         username: &str,
         master_pass: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Attempting to register new user: {}", username);
+
         let encrypted_master = self.db.encryption.encrypt(master_pass).unwrap();
         let encode_master = STANDARD.encode(encrypted_master);
 
@@ -52,9 +55,16 @@ impl Auth {
             last_login: Utc::now().to_rfc3339(),
         };
 
-        self.db.create(&user)?;
-
-        Ok(())
+        match self.db.create(&user) {
+            Ok(_) => {
+                info!("Successfully registered new user: {}", username);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to register user: {}", e);
+                Err(e)
+            }
+        }
     }
 
     /// Login a user.
@@ -76,16 +86,21 @@ impl Auth {
         username: &str,
         master_pass: &str,
     ) -> Result<i32, Box<dyn std::error::Error>> {
+        info!("Attempting to verify credentials");
+
         let users = self.db.read_all::<User>()?;
+        info!("Found {} users", users.len());
 
         if let Some(user) = users.first() {
             if user.username != username {
+                error!("Username mismatch");
                 return Err("Invalid credentials".into());
             }
 
             let decode_master = STANDARD.decode(&user.master_key).unwrap();
             if let Ok(decrypted) = self.db.encryption.decrypt(&decode_master) {
                 if decrypted == master_pass {
+                    info!("Password verified successfully");
                     let mut updated_user = user.clone();
                     updated_user.last_login = Utc::now().to_rfc3339();
                     self.db.update(&updated_user)?;
@@ -93,6 +108,9 @@ impl Auth {
                     return Ok(user.id.unwrap());
                 }
             }
+            error!("Password verification failed");
+        } else {
+            error!("No users found in database");
         }
 
         Err("Invalid credentials".into())
