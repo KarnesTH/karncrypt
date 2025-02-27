@@ -4,6 +4,7 @@ use web_sys::Node;
 
 use crate::components::icons::Icon;
 use crate::components::password_manager::PasswordManager;
+use crate::components::settings::SettingsPanel;
 
 use super::components::auth::Login;
 use super::components::info::{About, Guide, InfoModal, License};
@@ -30,7 +31,7 @@ pub fn App() -> impl IntoView {
     let (show_about, set_show_about) = create_signal(false);
     let (show_guide, set_show_guide) = create_signal(false);
     let (show_license, set_show_license) = create_signal(false);
-    let (_show_settings, set_show_settings) = create_signal(false);
+    let (show_settings, set_show_settings) = create_signal(false);
     let (info_dropdown, set_info_dropdown) = create_signal(false);
     let info_dropdown_ref = create_node_ref::<html::Div>();
 
@@ -257,6 +258,18 @@ pub fn App() -> impl IntoView {
                         >
                             <License />
                         </InfoModal>
+                    }.into_view()
+                } else {
+                    view! {
+                        <div />
+                    }.into_view()
+                }
+            }}
+
+            {move || {
+                if show_settings.get() {
+                    view! {
+                        <SettingsPanel on_close=move |_| set_show_settings.set(false) />
                     }.into_view()
                 } else {
                     view! {
