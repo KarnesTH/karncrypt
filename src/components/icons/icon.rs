@@ -24,6 +24,8 @@ pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -
         "trash" => include_str!("../../assets/icons/trash.svg"),
         "user" => include_str!("../../assets/icons/user.svg"),
         "x-mark" => include_str!("../../assets/icons/x-mark.svg"),
+        "cog-6-tooth" => include_str!("../../assets/icons/cog-6-tooth.svg"),
+        "information-circle" => include_str!("../../assets/icons/information-circle.svg"),
         _ => "",
     };
 
