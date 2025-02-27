@@ -41,6 +41,16 @@ pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -
         "computer-desktop" => include_str!("../../assets/icons/computer-desktop.svg"),
         "arrow-down-tray" => include_str!("../../assets/icons/arrow-down-tray.svg"),
         "arrow-up-tray" => include_str!("../../assets/icons/arrow-up-tray.svg"),
+        "book-open" => include_str!("../../assets/icons/book-open.svg"),
+        "arrow-right-end-on-rectangle" => {
+            include_str!("../../assets/icons/arrow-right-end-on-rectangle.svg")
+        }
+        "user-plus" => include_str!("../../assets/icons/user-plus.svg"),
+        "flag" => include_str!("../../assets/icons/flag.svg"),
+        "arrow-right" => include_str!("../../assets/icons/arrow-right.svg"),
+        "sparkles" => include_str!("../../assets/icons/sparkles.svg"),
+        "adjustments-horizontal" => include_str!("../../assets/icons/adjustments-horizontal.svg"),
+        "bookmark" => include_str!("../../assets/icons/bookmark.svg"),
         _ => "",
     };
 

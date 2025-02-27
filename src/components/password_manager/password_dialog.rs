@@ -29,7 +29,10 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
         }
     });
 
-    let x_mark_icon = create_memo(move |_| "x-mark");
+    let exit_icon = create_memo(move |_| "x-mark");
+    let key_icon = create_memo(move |_| "key");
+    let master_key_icon = create_memo(move |_| "shield-check");
+    let check_icon = create_memo(move |_| "check");
 
     let verify_password = move |ev: ev::SubmitEvent| {
         ev.prevent_default();
@@ -74,14 +77,20 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
         <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
             <div class="bg-background-card rounded-lg p-6 w-full max-w-md">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-white">
-                        "Passwort anzeigen"
+                    <h2 class="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center">
+                        <div class="flex items-center">
+                            <Icon
+                                icon=key_icon.into()
+                                class="w-8 h-8 mr-2 text-primary-100"
+                            />
+                            "Passwort anzeigen"
+                        </div>
                     </h2>
                     <button
                         class="text-gray-400 hover:text-white"
                         on:click=move |_| on_close.call(())
                     >
-                        <Icon icon=x_mark_icon.into() class="w-5 h-5" />
+                        <Icon icon=exit_icon.into() class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -90,7 +99,8 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                     view! {
                         <form on:submit=verify_password class="space-y-4">
                             <div>
-                                <label class="block text-white text-sm font-bold mb-2">
+                                <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                    <Icon icon=master_key_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                     "Master-Passwort"
                                 </label>
                                 <input
@@ -116,8 +126,9 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
 
                             <button
                                 type="submit"
-                                class="w-full bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90"
+                                class="w-full bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90 flex items-center justify-center"
                             >
+                                <Icon icon=check_icon.into() class="w-5 h-5 mr-2" />
                                 "Bestätigen"
                             </button>
                         </form>

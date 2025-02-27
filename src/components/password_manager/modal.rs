@@ -36,6 +36,14 @@ pub fn PasswordModal(
         }
     });
     let generate_icon = create_memo(move |_| "arrow-path");
+    let service_icon = create_memo(move |_| "bookmark");
+    let user_icon = create_memo(move |_| "user");
+    let key_icon = create_memo(move |_| "key");
+    let link_icon = create_memo(move |_| "link");
+    let note_icon = create_memo(move |_| "document-text");
+    let cancel_icon = create_memo(move |_| "x-mark");
+    let add_icon = create_memo(move |_| "plus");
+    let edit_icon = create_memo(move |_| "pencil-square");
 
     let mode = create_memo(move |_| mode.clone());
 
@@ -51,11 +59,21 @@ pub fn PasswordModal(
         <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
             <div class="bg-background-card rounded-lg p-6 w-full max-w-md max-h-[90%] flex flex-col">
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-xl font-bold text-white">
-                        {move || match mode.get() {
-                            ModalMode::Add => "Passwort hinzufügen",
-                            ModalMode::Edit(_) => "Passwort bearbeiten",
-                        }}
+                    <h2 class="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center">
+                        <div class="flex items-center">
+                            <Icon
+                                icon={if matches!(mode.get(), ModalMode::Add) {
+                                    add_icon.into()
+                                } else {
+                                    edit_icon.into()
+                                }}
+                                class="w-8 h-8 mr-2 text-primary-100"
+                            />
+                            {move || match mode.get() {
+                                ModalMode::Add => "Passwort hinzufügen",
+                                ModalMode::Edit(_) => "Passwort bearbeiten",
+                            }}
+                        </div>
                     </h2>
                     <button
                         class="text-gray-400 hover:text-white"
@@ -68,7 +86,8 @@ pub fn PasswordModal(
                 <div class="flex-1 overflow-y-auto">
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-white text-sm font-bold mb-2">
+                            <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                <Icon icon=service_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                 "Service"
                             </label>
                             <input
@@ -80,7 +99,8 @@ pub fn PasswordModal(
                         </div>
 
                         <div>
-                            <label class="block text-white text-sm font-bold mb-2">
+                            <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                <Icon icon=user_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                 "Benutzername"
                             </label>
                             <input
@@ -92,7 +112,8 @@ pub fn PasswordModal(
                         </div>
 
                         <div>
-                            <label class="block text-white text-sm font-bold mb-2">
+                            <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                <Icon icon=key_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                 "Passwort"
                             </label>
                             <div class="relative">
@@ -135,7 +156,8 @@ pub fn PasswordModal(
                         </button>
 
                         <div>
-                            <label class="block text-white text-sm font-bold mb-2">
+                            <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                <Icon icon=link_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                 "URL"
                             </label>
                             <input
@@ -147,7 +169,8 @@ pub fn PasswordModal(
                         </div>
 
                         <div>
-                            <label class="block text-white text-sm font-bold mb-2">
+                            <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                                <Icon icon=note_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
                                 "Notizen"
                             </label>
                             <textarea
@@ -161,13 +184,14 @@ pub fn PasswordModal(
 
                 <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-600">
                     <button
-                        class="px-4 py-2 text-white hover:text-primary-100"
+                        class="px-4 py-2 text-white hover:text-primary-100 flex items-center"
                         on:click=move |_| on_close.call(())
                     >
+                        <Icon icon=cancel_icon.into() class="w-5 h-5 mr-2" />
                         "Abbrechen"
                     </button>
                     <button
-                        class="bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90"
+                        class="bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90 flex items-center"
                         on:click=move |_| {
                             let new_item = TableItemArgs {
                                 id: match mode.get() {
@@ -183,7 +207,22 @@ pub fn PasswordModal(
                             on_save.call(new_item);
                         }
                     >
-                        "Speichern"
+                        {move || {
+                            let icon = if matches!(mode.get(), ModalMode::Add) {
+                                add_icon
+                            } else {
+                                edit_icon
+                            };
+                            view! {
+                                <>
+                                    <Icon
+                                        icon=icon.into()
+                                        class="w-5 h-5 mr-2"
+                                    />
+                                    "Speichern"
+                                </>
+                            }
+                        }}
                     </button>
                 </div>
             </div>

@@ -44,6 +44,11 @@ pub fn PasswordManager() -> impl IntoView {
 
     let plus_icon = create_memo(move |_| "plus");
     let key_icon = create_memo(move |_| "key");
+    let vault_icon = create_memo(move |_| "key");
+
+    let head_service_icon = create_memo(move |_| "bookmark");
+    let head_username_icon = create_memo(move |_| "user");
+    let head_password_icon = create_memo(move |_| "key");
 
     spawn_local(async move {
         let args = serde_wasm_bindgen::to_value(&GetPasswordsArgs {}).unwrap();
@@ -126,7 +131,10 @@ pub fn PasswordManager() -> impl IntoView {
     view! {
         <div class="w-full h-full flex flex-col">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-white">"Gespeicherte Passwörter"</h2>
+                <h2 class="text-2xl font-bold mb-0 bg-gradient-primary bg-clip-text text-transparent flex items-center">
+                    <Icon icon=vault_icon.into() class="w-8 h-8 mr-3 text-primary-100" />
+                    "Gespeicherte Passwörter"
+                </h2>
                 <button
                     class="bg-gradient-primary text-white px-4 py-2 rounded flex items-center hover:opacity-90 transition-opacity"
                     on:click=handle_add
@@ -164,10 +172,27 @@ pub fn PasswordManager() -> impl IntoView {
                                 <table class="w-full">
                                     <thead class="bg-background">
                                         <tr class="border-b border-gray-600">
-                                            <th class="text-left p-4 text-gray-400 font-medium">"Service"</th>
-                                            <th class="text-left p-4 text-gray-400 font-medium">"Benutzername"</th>
-                                            <th class="text-left p-4 text-gray-400 font-medium">"Passwort"</th>
-                                            <th class="text-right p-4 text-gray-400 font-medium w-32">"Aktionen"</th>
+                                            <th class="text-left p-4 text-gray-400 font-medium">
+                                                <div class="flex items-center">
+                                                    <Icon icon=head_service_icon.into() class="w-4 h-4 mr-2" />
+                                                    "Service"
+                                                </div>
+                                            </th>
+                                            <th class="text-left p-4 text-gray-400 font-medium">
+                                                <div class="flex items-center">
+                                                    <Icon icon=head_username_icon.into() class="w-4 h-4 mr-2" />
+                                                    "Benutzername"
+                                                </div>
+                                            </th>
+                                            <th class="text-left p-4 text-gray-400 font-medium">
+                                                <div class="flex items-center">
+                                                    <Icon icon=head_password_icon.into() class="w-4 h-4 mr-2" />
+                                                    "Passwort"
+                                                </div>
+                                            </th>
+                                            <th class="text-right p-4 text-gray-400 font-medium w-32">
+                                                "Aktionen"
+                                            </th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-600">

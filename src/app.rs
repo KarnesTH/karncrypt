@@ -38,6 +38,11 @@ pub fn App() -> impl IntoView {
     let info_icon = create_memo(move |_| "information-circle");
     let settings_icon = create_memo(move |_| "cog-6-tooth");
     let logout_icon = create_memo(move |_| "arrow-left-start-on-rectangle");
+    let about_icon = create_memo(move |_| "information-circle");
+    let guide_icon = create_memo(move |_| "book-open");
+    let license_icon = create_memo(move |_| "document-text");
+    let passwords_icon = create_memo(move |_| "key");
+    let generator_icon = create_memo(move |_| "sparkles");
 
     window_event_listener(ev::click, move |ev| {
         let target = ev.target();
@@ -99,8 +104,10 @@ pub fn App() -> impl IntoView {
                                                 )
                                                 on:click=move |_| set_current_tab.set(DashboardTab::Passwords)
                                             >
+                                                <Icon icon=passwords_icon.into() class="w-5 h-5 mr-2" />
                                                 "Passwörter"
                                             </button>
+
                                             <button
                                                 class=move || format!("inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {}",
                                                     if current_tab.get() == DashboardTab::Generator {
@@ -111,6 +118,7 @@ pub fn App() -> impl IntoView {
                                                 )
                                                 on:click=move |_| set_current_tab.set(DashboardTab::Generator)
                                             >
+                                                <Icon icon=generator_icon.into() class="w-5 h-5 mr-2" />
                                                 "Generator"
                                             </button>
                                         </div>
@@ -144,31 +152,34 @@ pub fn App() -> impl IntoView {
                                                         }
                                                     >
                                                         <button
-                                                            class="w-full text-left px-4 py-2 text-white hover:bg-background"
+                                                            class="w-full flex items-center text-left px-4 py-2 text-gray-400 hover:text-white hover:bg-background transition-colors"
                                                             on:click=move |_| {
                                                                 set_show_about.set(true);
                                                                 set_info_dropdown.set(false);
                                                             }
                                                         >
-                                                            "About"
+                                                            <Icon icon=about_icon.into() class="w-5 h-5" />
+                                                            <span class="ml-2">"About"</span>
                                                         </button>
                                                         <button
-                                                            class="w-full text-left px-4 py-2 text-white hover:bg-background"
+                                                            class="w-full flex items-center text-left px-4 py-2 text-gray-400 hover:text-white hover:bg-background transition-colors"
                                                             on:click=move |_| {
                                                                 set_show_guide.set(true);
                                                                 set_info_dropdown.set(false);
                                                             }
                                                         >
-                                                            "Guide"
+                                                            <Icon icon=guide_icon.into() class="w-5 h-5" />
+                                                            <span class="ml-2">"Guide"</span>
                                                         </button>
                                                         <button
-                                                            class="w-full text-left px-4 py-2 text-white hover:bg-background"
+                                                            class="w-full flex items-center text-left px-4 py-2 text-gray-400 hover:text-white hover:bg-background transition-colors"
                                                             on:click=move |_| {
                                                                 set_show_license.set(true);
                                                                 set_info_dropdown.set(false);
                                                             }
                                                         >
-                                                            "Lizenz"
+                                                            <Icon icon=license_icon.into() class="w-5 h-5" />
+                                                            <span class="ml-2">"Lizenz"</span>
                                                         </button>
                                                     </div>
                                                     }.into_view()
@@ -236,6 +247,7 @@ pub fn App() -> impl IntoView {
                     view! {
                         <InfoModal
                             title="About".to_string()
+                            icon="information-circle"
                             on_close=move |_| set_show_about.set(false)
                         >
                             <About />
@@ -245,6 +257,7 @@ pub fn App() -> impl IntoView {
                     view! {
                         <InfoModal
                             title="Passwort Guide".to_string()
+                            icon="book-open"
                             on_close=move |_| set_show_guide.set(false)
                         >
                             <Guide/>
@@ -254,6 +267,7 @@ pub fn App() -> impl IntoView {
                     view! {
                         <InfoModal
                             title="Lizenz".to_string()
+                            icon="document-text"
                             on_close=move |_| set_show_license.set(false)
                         >
                             <License />

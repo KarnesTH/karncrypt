@@ -29,16 +29,22 @@ pub fn PasswordGenerator() -> impl IntoView {
     });
 
     let generate_icon = create_memo(move |_| "arrow-path");
+    let sparkles_icon = create_memo(move |_| "sparkles");
+    let slider_icon = create_memo(move |_| "adjustments-horizontal");
 
     view! {
         <div class="w-full flex gap-6">
             <div class="w-1/2">
-                <h2 class="text-2xl font-bold mb-6 text-white">"Passwort Generator"</h2>
+                <h2 class="text-2xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent flex items-center">
+                    <Icon icon=sparkles_icon.into() class="w-8 h-8 mr-3 text-primary-100" />
+                    "Passwort Generator"
+                </h2>
 
                 <div class="mb-6">
-                    <label class="block text-white text-sm font-bold mb-2">
-                        "Passwortlänge: "
-                        <span class="text-primary-100">{length}</span>
+                    <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                        <Icon icon=slider_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
+                        <span>"Passwortlänge: "</span>
+                        <span class="text-primary-100 ml-1">{length}</span>
                     </label>
                     <div class="relative">
                         <input
@@ -47,19 +53,19 @@ pub fn PasswordGenerator() -> impl IntoView {
                             max="64"
                             value=length
                             class="w-full h-2 bg-background rounded-lg appearance-none cursor-pointer border border-gray-600
-                                    [&::-webkit-slider-runnable-track]:bg-background
-                                    [&::-webkit-slider-runnable-track]:rounded-lg
-                                    [&::-webkit-slider-runnable-track]:border-gray-600
-                                    [&::-webkit-slider-thumb]:w-4
-                                    [&::-webkit-slider-thumb]:h-4
-                                    [&::-webkit-slider-thumb]:bg-primary-100
-                                    [&::-webkit-slider-thumb]:border-2
-                                    [&::-webkit-slider-thumb]:border-background
-                                    [&::-webkit-slider-thumb]:rounded-full
-                                    [&::-webkit-slider-thumb]:appearance-none
-                                    hover:[&::-webkit-slider-thumb]:bg-primary-200
-                                    focus:[&::-webkit-slider-thumb]:ring-2
-                                    focus:[&::-webkit-slider-thumb]:ring-primary-100"
+                                [&::-webkit-slider-runnable-track]:bg-background
+                                [&::-webkit-slider-runnable-track]:rounded-lg
+                                [&::-webkit-slider-runnable-track]:border-gray-600
+                                [&::-webkit-slider-thumb]:w-4
+                                [&::-webkit-slider-thumb]:h-4
+                                [&::-webkit-slider-thumb]:bg-primary-100
+                                [&::-webkit-slider-thumb]:border-2
+                                [&::-webkit-slider-thumb]:border-background
+                                [&::-webkit-slider-thumb]:rounded-full
+                                [&::-webkit-slider-thumb]:appearance-none
+                                hover:[&::-webkit-slider-thumb]:bg-primary-200
+                                focus:[&::-webkit-slider-thumb]:ring-2
+                                focus:[&::-webkit-slider-thumb]:ring-primary-100"
                             on:input=move |ev| set_length.set(event_target_value(&ev).parse().unwrap_or(16))
                         />
                     </div>
