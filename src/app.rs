@@ -6,6 +6,7 @@ use crate::components::icons::Icon;
 use crate::components::password_manager::PasswordManager;
 
 use super::components::auth::Login;
+use super::components::info::{About, Guide, InfoModal, License};
 use super::components::password_generator::PasswordGenerator;
 use super::components::setup::Init;
 
@@ -26,7 +27,9 @@ pub fn App() -> impl IntoView {
     let (is_initialized, set_is_initialized) = create_signal(false);
     let (is_authenticated, set_is_authenticated) = create_signal(false);
     let (current_tab, set_current_tab) = create_signal(DashboardTab::Passwords);
-    let (_show_info, _set_show_info) = create_signal(false);
+    let (show_about, set_show_about) = create_signal(false);
+    let (show_guide, set_show_guide) = create_signal(false);
+    let (show_license, set_show_license) = create_signal(false);
     let (_show_settings, set_show_settings) = create_signal(false);
     let (info_dropdown, set_info_dropdown) = create_signal(false);
     let info_dropdown_ref = create_node_ref::<html::Div>();
@@ -142,7 +145,7 @@ pub fn App() -> impl IntoView {
                                                         <button
                                                             class="w-full text-left px-4 py-2 text-white hover:bg-background"
                                                             on:click=move |_| {
-                                                                // TODO: Implement about modal
+                                                                set_show_about.set(true);
                                                                 set_info_dropdown.set(false);
                                                             }
                                                         >
@@ -151,11 +154,20 @@ pub fn App() -> impl IntoView {
                                                         <button
                                                             class="w-full text-left px-4 py-2 text-white hover:bg-background"
                                                             on:click=move |_| {
-                                                                // TODO: Implement guide modal
+                                                                set_show_guide.set(true);
                                                                 set_info_dropdown.set(false);
                                                             }
                                                         >
                                                             "Guide"
+                                                        </button>
+                                                        <button
+                                                            class="w-full text-left px-4 py-2 text-white hover:bg-background"
+                                                            on:click=move |_| {
+                                                                set_show_license.set(true);
+                                                                set_info_dropdown.set(false);
+                                                            }
+                                                        >
+                                                            "Lizenz"
                                                         </button>
                                                     </div>
                                                     }.into_view()
@@ -214,6 +226,41 @@ pub fn App() -> impl IntoView {
                         <div class="min-h-screen flex items-center justify-center">
                             <Login on_success=on_auth_success />
                         </div>
+                    }.into_view()
+                }
+            }}
+
+            {move || {
+                if show_about.get() {
+                    view! {
+                        <InfoModal
+                            title="About".to_string()
+                            on_close=move |_| set_show_about.set(false)
+                        >
+                            <About />
+                        </InfoModal>
+                    }.into_view()
+                } else if show_guide.get() {
+                    view! {
+                        <InfoModal
+                            title="Passwort Guide".to_string()
+                            on_close=move |_| set_show_guide.set(false)
+                        >
+                            <Guide/>
+                        </InfoModal>
+                    }.into_view()
+                } else if show_license.get() {
+                    view! {
+                        <InfoModal
+                            title="Lizenz".to_string()
+                            on_close=move |_| set_show_license.set(false)
+                        >
+                            <License />
+                        </InfoModal>
+                    }.into_view()
+                } else {
+                    view! {
+                        <div />
                     }.into_view()
                 }
             }}
