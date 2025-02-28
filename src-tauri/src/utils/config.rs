@@ -4,27 +4,55 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Config {
     pub logging: LogConfig,
     pub database: DatabaseConfig,
     pub app: AppConfig,
+    pub generator: GeneratorConfig,
+    pub backup: BackupConfig,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     pub is_initialized: bool,
-    pub db_custom_path: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct LogConfig {
     pub level: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub db_name: String,
+    pub db_custom_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GeneratorConfig {
+    pub default_length: usize,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct BackupConfig {
+    pub enabled: bool,
+    pub interval: BackupInterval,
+    pub max_backups: usize,
+    pub backup_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum BackupInterval {
+    Daily,
+    Weekly,
+    Monthly,
+}
+
+impl Default for BackupInterval {
+    fn default() -> Self {
+        Self::Weekly
+    }
 }
 
 impl Default for Config {
@@ -35,10 +63,17 @@ impl Default for Config {
             },
             database: DatabaseConfig {
                 db_name: "pass.db".to_string(),
+                db_custom_path: None,
             },
             app: AppConfig {
                 is_initialized: false,
-                db_custom_path: None,
+            },
+            generator: GeneratorConfig { default_length: 16 },
+            backup: BackupConfig {
+                enabled: false,
+                interval: BackupInterval::default(),
+                max_backups: 7,
+                backup_path: None,
             },
         }
     }
@@ -163,7 +198,9 @@ impl Config {
         Ok(())
     }
 
-    /// Get the path to the database file.
+    /// Get the database directory.
+    ///
+    /// If the database directory does not exist, create it.
     ///
     /// # Returns
     ///
@@ -172,58 +209,123 @@ impl Config {
     /// # Errors
     ///
     /// If the database file path cannot be created.
-    pub fn get_db_path(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        if let Some(path) = &self.app.db_custom_path {
-            Ok(PathBuf::from(path))
+    pub fn get_db_dir(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let db_dir = if let Some(path) = &self.database.db_custom_path {
+            PathBuf::from(path)
         } else {
-            let config_dir = Self::get_config_dir()?;
-            Ok(config_dir.join(&self.database.db_name))
+            Self::get_config_dir()?
+        };
+
+        if !db_dir.exists() {
+            std::fs::create_dir_all(&db_dir)?;
         }
+
+        Ok(db_dir)
+    }
+
+    /// Get the directory for backups.
+    ///
+    /// If the backup directory does not exist, create it.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the path to the backup directory or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the backup directory path cannot be created.
+    pub fn get_backup_dir(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
+        let backup_dir = if let Some(path) = &self.backup.backup_path {
+            PathBuf::from(path)
+        } else {
+            Self::get_config_dir()?.join("backups")
+        };
+
+        if !backup_dir.exists() {
+            std::fs::create_dir_all(&backup_dir)?;
+        }
+
+        Ok(backup_dir)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
+    use tempfile::TempDir;
+
+    fn setup_test_config() -> TempDir {
+        let temp = TempDir::new().unwrap();
+        env::set_var("HOME", temp.path());
+        temp
+    }
 
     #[test]
-    fn test_load_config() {
+    fn test_load_default_config() {
+        let _temp = setup_test_config();
         let config = Config::load().unwrap();
+
         assert_eq!(config.logging.level, "info");
         assert_eq!(config.database.db_name, "pass.db");
+        assert!(config.database.db_custom_path.is_none());
+        assert!(!config.app.is_initialized);
+        assert_eq!(config.generator.default_length, 16);
+        assert!(!config.backup.enabled);
+        assert!(matches!(config.backup.interval, BackupInterval::Weekly));
+        assert_eq!(config.backup.max_backups, 7);
+        assert!(config.backup.backup_path.is_none());
     }
 
     #[test]
-    fn test_default_config() {
+    fn test_directory_creation() {
+        let temp = setup_test_config();
         let config = Config::default();
-        assert_eq!(config.logging.level, "info");
-        assert_eq!(config.database.db_name, "pass.db");
-    }
 
-    #[test]
-    fn test_get_config_dir() {
         let config_dir = Config::get_config_dir().unwrap();
         assert!(config_dir.exists());
-    }
+        assert!(config_dir.starts_with(temp.path()));
 
-    #[test]
-    fn test_get_log_dir() {
         let log_dir = Config::get_log_dir().unwrap();
         assert!(log_dir.exists());
+        assert!(log_dir.ends_with("logs"));
+
+        let db_dir = config.get_db_dir().unwrap();
+        assert!(db_dir.exists());
+        assert!(db_dir.starts_with(temp.path()));
+
+        let backup_dir = config.get_backup_dir().unwrap();
+        assert!(backup_dir.exists());
+        assert!(backup_dir.ends_with("backups"));
     }
 
     #[test]
-    fn test_get_db_path() {
-        let config = Config::load().unwrap();
-        let db_path = config.get_db_path().unwrap();
-        assert!(db_path.exists());
+    fn test_custom_paths() {
+        let temp = setup_test_config();
+        let mut config = Config::default();
+
+        let custom_db = temp.path().join("custom_db");
+        config.database.db_custom_path = Some(custom_db.to_str().unwrap().to_string());
+        let db_dir = config.get_db_dir().unwrap();
+        assert_eq!(db_dir, custom_db);
+
+        let custom_backup = temp.path().join("custom_backup");
+        config.backup.backup_path = Some(custom_backup.to_str().unwrap().to_string());
+        let backup_dir = config.get_backup_dir().unwrap();
+        assert_eq!(backup_dir, custom_backup);
     }
 
     #[test]
-    fn test_setup_logger() {
-        let config = Config::default();
-        let result = config.setup_logger();
+    fn test_save_and_load() {
+        let _temp = setup_test_config();
+        let mut config = Config::default();
+        config.backup.enabled = true;
+        config.generator.default_length = 24;
 
-        assert!(result.is_ok());
+        config.save().unwrap();
+
+        let loaded = Config::load().unwrap();
+        assert!(loaded.backup.enabled);
+        assert_eq!(loaded.generator.default_length, 24);
     }
 }

@@ -164,7 +164,7 @@ async fn check_is_initialized() -> Result<bool, String> {
 async fn complete_setup(custom_path: Option<String>) -> Result<(), String> {
     let mut config = Config::load().map_err(|e| e.to_string())?;
     config.app.is_initialized = true;
-    config.app.db_custom_path = custom_path;
+    config.database.db_custom_path = custom_path;
     config.save().map_err(|e| e.to_string())?;
 
     Ok(())

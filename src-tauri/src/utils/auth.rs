@@ -116,3 +116,76 @@ impl<'a> Auth<'a> {
         Err("Invalid credentials".into())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn setup_test_db() -> (TempDir, Database) {
+        let temp = TempDir::new().unwrap();
+        let db_path = temp.path().join("test.db");
+        let salt = [0u8; 16];
+        let db = Database::new(db_path, "test_password", &salt).unwrap();
+        (temp, db)
+    }
+
+    #[test]
+    fn test_registration() {
+        let (_temp, db) = setup_test_db();
+        let auth = Auth::new(&db);
+
+        let result = auth.register("testuser", "testpass");
+        assert!(result.is_ok());
+
+        let result = auth.register("testuser2", "testpass");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_login() {
+        let (_temp, db) = setup_test_db();
+        let auth = Auth::new(&db);
+
+        auth.register("testuser", "testpass").unwrap();
+
+        let result = auth.login("testuser", "testpass");
+        assert!(result.is_ok());
+
+        let result = auth.login("testuser", "wrongpass");
+        assert!(result.is_err());
+
+        let result = auth.login("wronguser", "testpass");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_last_login_update() {
+        let (_temp, db) = setup_test_db();
+        let auth = Auth::new(&db);
+
+        auth.register("testuser", "testpass").unwrap();
+
+        let users = db.read_all::<User>().unwrap();
+        let first_login = users[0].last_login.clone();
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        auth.login("testuser", "testpass").unwrap();
+
+        let users = db.read_all::<User>().unwrap();
+        assert_ne!(first_login, users[0].last_login);
+    }
+
+    #[test]
+    fn test_password_encryption() {
+        let (_temp, db) = setup_test_db();
+        let auth = Auth::new(&db);
+
+        auth.register("testuser", "testpass").unwrap();
+
+        let users = db.read_all::<User>().unwrap();
+        let stored_key = &users[0].master_key;
+
+        assert_ne!(stored_key, "testpass".as_bytes());
+    }
+}

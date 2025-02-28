@@ -32,12 +32,12 @@ impl PasswordManager {
         } else {
             let mut new_salt = [0u8; 16];
             SystemRandom::new().fill(&mut new_salt).unwrap();
-            std::fs::write(&salt_file, &new_salt)?;
+            std::fs::write(&salt_file, new_salt)?;
             new_salt
         };
 
         let encryption = Encryption::new(master_pass, &salt);
-        let db = Database::new(config.get_db_path()?, master_pass, &salt)?;
+        let db = Database::new(config.get_db_dir()?, master_pass, &salt)?;
         let token_manager = TokenManager::new(config_dir, encryption);
 
         Ok(Self { db, token_manager })
