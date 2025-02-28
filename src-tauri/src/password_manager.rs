@@ -401,3 +401,28 @@ impl PasswordManager {
         Ok(test_key == current_key)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_password_generation() {
+        let password = PasswordManager::generate_password(16).unwrap();
+        assert_eq!(password.len(), 16);
+        assert!(PasswordManager::is_valid_password(&password));
+
+        assert!(PasswordManager::generate_password(7).is_err());
+        assert!(PasswordManager::generate_password(65).is_err());
+    }
+
+    #[test]
+    fn test_password_validation() {
+        assert!(PasswordManager::is_valid_password("Test123!@#"));
+
+        assert!(!PasswordManager::is_valid_password("nouppercasetest123!"));
+        assert!(!PasswordManager::is_valid_password("NOLOWERCASETEST123!"));
+        assert!(!PasswordManager::is_valid_password("NoSpecialChars123"));
+        assert!(!PasswordManager::is_valid_password("No-Numbers-Here!"));
+    }
+}

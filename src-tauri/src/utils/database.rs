@@ -332,3 +332,146 @@ impl PasswordEntry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn setup_test_db() -> (TempDir, Database) {
+        let temp = TempDir::new().unwrap();
+        let db_path = temp.path().join("test.db");
+        let salt = [0u8; 16];
+        let db = Database::new(db_path, "test_password", &salt).unwrap();
+        (temp, db)
+    }
+
+    #[test]
+    fn test_database_creation() {
+        let (_temp, db) = setup_test_db();
+
+        let tables = db
+            .connection
+            .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+
+        assert!(tables.contains(&"user".to_string()));
+        assert!(tables.contains(&"passwords".to_string()));
+    }
+
+    #[test]
+    fn test_single_user_constraint() {
+        let (_temp, db) = setup_test_db();
+
+        let user1 = User {
+            id: None,
+            username: "test1".to_string(),
+            master_key: vec![1, 2, 3],
+            created_at: Utc::now().to_rfc3339(),
+            last_login: Utc::now().to_rfc3339(),
+        };
+        assert!(db.create(&user1).is_ok());
+
+        let user2 = User {
+            id: None,
+            username: "test2".to_string(),
+            master_key: vec![4, 5, 6],
+            created_at: Utc::now().to_rfc3339(),
+            last_login: Utc::now().to_rfc3339(),
+        };
+        assert!(db.create(&user2).is_err());
+    }
+
+    #[test]
+    fn test_password_entry_crud() {
+        let (_temp, db) = setup_test_db();
+
+        let user = User {
+            id: None,
+            username: "test".to_string(),
+            master_key: vec![1, 2, 3],
+            created_at: Utc::now().to_rfc3339(),
+            last_login: Utc::now().to_rfc3339(),
+        };
+        db.create(&user).unwrap();
+
+        let entry = PasswordEntry::new(
+            1,
+            "service".to_string(),
+            "username".to_string(),
+            "password".to_string(),
+            "url".to_string(),
+            "notes".to_string(),
+        );
+
+        assert!(db.create(&entry).is_ok());
+
+        let entries = db.read_all::<PasswordEntry>().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].service, "service");
+
+        let read_entry = db.read_by_id::<PasswordEntry>(1).unwrap();
+        assert_eq!(read_entry.service, "service");
+
+        let mut updated_entry = entries[0].clone();
+        updated_entry.service = "new_service".to_string();
+        assert!(db.update(&updated_entry).is_ok());
+
+        let updated = db.read_by_id::<PasswordEntry>(1).unwrap();
+        assert_eq!(updated.service, "new_service");
+
+        assert!(db.delete::<PasswordEntry>(1).is_ok());
+
+        let entries = db.read_all::<PasswordEntry>().unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_foreign_key_constraint() {
+        let (_temp, db) = setup_test_db();
+
+        let entry = PasswordEntry::new(
+            999,
+            "service".to_string(),
+            "username".to_string(),
+            "password".to_string(),
+            "url".to_string(),
+            "notes".to_string(),
+        );
+
+        assert!(db.create(&entry).is_err());
+    }
+
+    #[test]
+    fn test_user_cascade_delete() {
+        let (_temp, db) = setup_test_db();
+
+        let user = User {
+            id: None,
+            username: "test".to_string(),
+            master_key: vec![1, 2, 3],
+            created_at: Utc::now().to_rfc3339(),
+            last_login: Utc::now().to_rfc3339(),
+        };
+        db.create(&user).unwrap();
+
+        let entry = PasswordEntry::new(
+            1,
+            "service".to_string(),
+            "username".to_string(),
+            "password".to_string(),
+            "url".to_string(),
+            "notes".to_string(),
+        );
+        db.create(&entry).unwrap();
+
+        db.delete::<User>(1).unwrap();
+
+        let entries = db.read_all::<PasswordEntry>().unwrap();
+        assert!(entries.is_empty());
+    }
+}

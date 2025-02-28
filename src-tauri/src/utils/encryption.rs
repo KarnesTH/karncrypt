@@ -145,4 +145,54 @@ mod tests {
         let result = encryption2.decrypt(&encrypted_data);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_get_key() {
+        let salt = create_test_salt();
+        let encryption = Encryption::new("password", &salt);
+
+        let key1 = encryption.get_key("testpass").unwrap();
+        let key2 = encryption.get_key("testpass").unwrap();
+        assert_eq!(key1, key2);
+
+        let key3 = encryption.get_key("different").unwrap();
+        assert_ne!(key1, key3);
+
+        assert_eq!(key1.len(), 64);
+    }
+
+    #[test]
+    fn test_empty_data() {
+        let salt = create_test_salt();
+        let encryption = Encryption::new("password", &salt);
+
+        let encrypted = encryption.encrypt("").unwrap();
+        let decrypted = encryption.decrypt(&encrypted).unwrap();
+        assert_eq!("", decrypted);
+    }
+
+    #[test]
+    fn test_large_data() {
+        let salt = create_test_salt();
+        let encryption = Encryption::new("password", &salt);
+
+        let large_data = "x".repeat(1000);
+        let encrypted = encryption.encrypt(&large_data).unwrap();
+        let decrypted = encryption.decrypt(&encrypted).unwrap();
+        assert_eq!(large_data, decrypted);
+    }
+
+    #[test]
+    fn test_encryption_determinism() {
+        let salt = create_test_salt();
+        let encryption = Encryption::new("password", &salt);
+
+        let data = "test";
+        let enc1 = encryption.encrypt(data).unwrap();
+        let enc2 = encryption.encrypt(data).unwrap();
+        assert_ne!(enc1, enc2);
+
+        assert_eq!(encryption.decrypt(&enc1).unwrap(), data);
+        assert_eq!(encryption.decrypt(&enc2).unwrap(), data);
+    }
 }

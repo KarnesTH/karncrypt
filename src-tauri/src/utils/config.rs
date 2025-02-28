@@ -16,6 +16,7 @@ pub struct Config {
 #[derive(Serialize, Deserialize)]
 pub struct AppConfig {
     pub is_initialized: bool,
+    pub auto_logout_duration: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -67,6 +68,7 @@ impl Default for Config {
             },
             app: AppConfig {
                 is_initialized: false,
+                auto_logout_duration: 10,
             },
             generator: GeneratorConfig { default_length: 16 },
             backup: BackupConfig {
@@ -270,6 +272,7 @@ mod tests {
         assert_eq!(config.database.db_name, "pass.db");
         assert!(config.database.db_custom_path.is_none());
         assert!(!config.app.is_initialized);
+        assert_eq!(config.app.auto_logout_duration, 10);
         assert_eq!(config.generator.default_length, 16);
         assert!(!config.backup.enabled);
         assert!(matches!(config.backup.interval, BackupInterval::Weekly));
