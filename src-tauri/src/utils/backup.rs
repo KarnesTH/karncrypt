@@ -1,12 +1,21 @@
-use crate::utils::{BackupCompressor, BackupFile, Database, Encryption};
+use crate::utils::{Database, Encryption};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use chrono::Utc;
 use log::info;
 use std::fs;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use super::PasswordEntry;
+use super::{BackupCompressor, BackupFile};
+
+pub struct ImportResult {
+    pub imported: usize,
+    pub skipped: usize,
+    pub errors: Vec<String>,
+}
 
 pub struct BackupManager {
     encryption: Encryption,
@@ -282,6 +291,168 @@ impl BackupManager {
 
         Ok(export_path)
     }
+
+    /// Check if a CSV file is valid and safe to import
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - The path to the CSV file
+    ///
+    /// # Returns
+    ///
+    /// Returns `true` if the file is valid and safe to import, `false` otherwise
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file is invalid or unsafe
+    fn is_valid_csv(&self, file_path: &Path) -> Result<bool, Box<dyn std::error::Error>> {
+        let metadata = fs::metadata(file_path)?;
+
+        if !metadata.is_file() || metadata.is_symlink() {
+            info!("File is not a regular file or is a symlink");
+            return Ok(false);
+        }
+
+        let file_size = metadata.len();
+        if file_size > 10_000_000 {
+            info!("File exceeds size limit");
+            return Ok(false);
+        }
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if metadata.permissions().mode() & 0o111 != 0 {
+                info!("File has execute permissions");
+                return Ok(false);
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::MetadataExt;
+            let attributes = metadata.file_attributes();
+            if attributes & 0x2 != 0 || attributes & 0x4 != 0 {
+                info!("File is hidden or system file");
+                return Ok(false);
+            }
+        }
+
+        let mut file = File::open(file_path)?;
+        let mut buffer = [0u8; 1024];
+        let bytes_read = file.read(&mut buffer)?;
+
+        let stated_size = file.metadata()?.len();
+        if stated_size != file_size {
+            info!("File size mismatch");
+            return Ok(false);
+        }
+
+        if buffer[..bytes_read].contains(&0) {
+            info!("File contains null bytes");
+            return Ok(false);
+        }
+
+        if String::from_utf8(buffer[..bytes_read].to_vec()).is_err() {
+            info!("File contains invalid UTF-8");
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+
+    /// Import password entries from a CSV file
+    ///
+    /// # Arguments
+    ///
+    /// * `db` - The database to import the entries into
+    /// * `file_path` - The path to the CSV file
+    ///
+    /// # Returns
+    ///
+    /// The result of the import operation
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the import fails
+    pub fn import_csv(
+        &self,
+        db: &Database,
+        file_path: &Path,
+    ) -> Result<ImportResult, Box<dyn std::error::Error>> {
+        if !self.is_valid_csv(file_path)? {
+            return Err("Invalid or potentially unsafe CSV file".into());
+        }
+
+        let mut imported = 0;
+        let mut skipped = 0;
+        let mut errors = Vec::new();
+
+        let mut rdr = csv::ReaderBuilder::new()
+            .delimiter(b';')
+            .has_headers(false)
+            .flexible(true)
+            .trim(csv::Trim::All)
+            .from_path(file_path)?;
+
+        let mut existing_entries = db.read_all::<PasswordEntry>()?;
+
+        for (index, result) in rdr.records().enumerate() {
+            let record = match result {
+                Ok(rec) => {
+                    println!("Record content: {:?}", rec);
+                    rec
+                }
+                Err(e) => {
+                    println!("Error: {}", e);
+                    errors.push(format!("Error reading line {}: {}", index + 1, e));
+                    continue;
+                }
+            };
+
+            if record.len() != 5 {
+                errors.push(format!("Line {} has invalid number of fields", index + 1));
+                continue;
+            }
+
+            let is_duplicate = existing_entries
+                .iter()
+                .any(|entry| entry.service == record[0] && entry.username == record[1]);
+
+            if is_duplicate {
+                skipped += 1;
+                continue;
+            }
+
+            let encrypted = self.encryption.encrypt(&record[2]).unwrap();
+            let encoded = STANDARD.encode(encrypted);
+
+            let entry = PasswordEntry::new(
+                1,
+                record[0].to_string(),
+                record[1].to_string(),
+                encoded,
+                record[3].to_string(),
+                record[4].to_string(),
+            );
+
+            match db.create(&entry) {
+                Ok(_) => {
+                    imported += 1;
+                    existing_entries = db.read_all::<PasswordEntry>()?;
+                }
+                Err(e) => {
+                    errors.push(format!("Error importing entry: {}", e));
+                }
+            }
+        }
+
+        Ok(ImportResult {
+            imported,
+            skipped,
+            errors,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -289,6 +460,8 @@ mod tests {
     use super::*;
     use crate::utils::{database::User, Auth};
     use csv::StringRecord;
+    use std::fs::File;
+    use std::io::Write;
     use tempfile::TempDir;
 
     fn setup_test_env() -> (TempDir, Database, PathBuf, PathBuf, Encryption) {
@@ -473,5 +646,105 @@ mod tests {
             assert_eq!(record[3], url.to_string());
             assert_eq!(record[4], notes.to_string());
         }
+    }
+
+    #[test]
+    fn test_valid_csv() {
+        let (_temp, _db, _config_dir, backup_dir, encryption) = setup_test_env();
+        let backup_manager = BackupManager::new(encryption);
+
+        let test_file = backup_dir.join("test.csv");
+        let mut file = File::create(&test_file).unwrap();
+        file.write_all(b"service;username;password;url;notes\n")
+            .unwrap();
+        file.write_all(b"test;user;pass;http://test.com;note\n")
+            .unwrap();
+
+        assert!(backup_manager.is_valid_csv(&test_file).unwrap());
+    }
+
+    #[test]
+    fn test_invalid_csv() {
+        let (_temp, _db, _config_dir, backup_dir, encryption) = setup_test_env();
+        let backup_manager = BackupManager::new(encryption);
+
+        let test_file = backup_dir.join("test_null.csv");
+        let mut file = File::create(&test_file).unwrap();
+        file.write_all(b"test\0test").unwrap();
+        assert!(!backup_manager.is_valid_csv(&test_file).unwrap());
+
+        let test_file = backup_dir.join("test_large.csv");
+        let mut file = File::create(&test_file).unwrap();
+        for _ in 0..1_000_000 {
+            file.write_all(b"test;test;test;test;test\n").unwrap();
+        }
+        assert!(!backup_manager.is_valid_csv(&test_file).unwrap());
+    }
+
+    #[test]
+    fn test_invalid_csv_extended() {
+        let (_temp, _db, _config_dir, backup_dir, encryption) = setup_test_env();
+        let backup_manager = BackupManager::new(encryption);
+
+        let test_file = backup_dir.join("test_invalid_utf8.csv");
+        let mut file = File::create(&test_file).unwrap();
+        file.write_all(&[0xFF, 0xFF, 0xFF]).unwrap();
+        assert!(!backup_manager.is_valid_csv(&test_file).unwrap());
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let test_file = backup_dir.join("test_executable.csv");
+            let mut file = File::create(&test_file).unwrap();
+            file.write_all(b"test;test").unwrap();
+            let mut perms = file.metadata().unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&test_file, perms).unwrap();
+            assert!(!backup_manager.is_valid_csv(&test_file).unwrap());
+        }
+    }
+
+    #[test]
+    fn test_import_csv() {
+        let (_temp, db, _config_dir, backup_dir, encryption) = setup_test_env();
+        let auth = Auth::new(&db);
+        auth.register("testuser", "testpass").unwrap();
+
+        let users = db.read_all::<User>().unwrap();
+        assert_eq!(users.len(), 1);
+        let backup_manager = BackupManager::new(encryption);
+
+        let test_file = backup_dir.join("import_test.csv");
+        let mut file = File::create(&test_file).unwrap();
+
+        file.write_all(b"Service1;user1;pass1;https://service1.com;note1\n")
+            .unwrap();
+        file.write_all(b"Service2;user2;pass2;https://service2.com;note2\n")
+            .unwrap();
+
+        file.write_all(b"Service1;user1;pass3;https://service3.com;note3\n")
+            .unwrap();
+
+        file.write_all(b"Service3;user3;pass3;https://service3.com\n")
+            .unwrap();
+
+        let result = backup_manager.import_csv(&db, &test_file).unwrap();
+
+        assert_eq!(result.imported, 2);
+        assert_eq!(result.skipped, 1);
+        assert_eq!(result.errors.len(), 1);
+
+        let entries = db.read_all::<PasswordEntry>().unwrap();
+        assert_eq!(entries.len(), 2);
+
+        let first = entries.iter().find(|e| e.service == "Service1").unwrap();
+        assert_eq!(first.username, "user1");
+        assert_eq!(first.url, "https://service1.com");
+        assert_eq!(first.notes, "note1");
+
+        let second = entries.iter().find(|e| e.service == "Service2").unwrap();
+        assert_eq!(second.username, "user2");
+        assert_eq!(second.url, "https://service2.com");
+        assert_eq!(second.notes, "note2");
     }
 }
