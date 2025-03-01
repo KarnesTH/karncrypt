@@ -1,3 +1,4 @@
+use crate::app::invoke;
 use leptos::*;
 
 use crate::components::icons::Icon;
@@ -17,6 +18,7 @@ pub fn DatabaseSettings() -> impl IntoView {
     let (auto_backup, set_auto_backup) = create_signal(false);
     let (backup_interval, set_backup_interval) = create_signal(BackupInterval::Weekly);
     let (error, _set_error) = create_signal(String::new());
+    let (status, set_status) = create_signal(String::new());
 
     let folder_icon = create_memo(move |_| "folder-open");
     let backup_icon = create_memo(move |_| "archive-box");
@@ -26,6 +28,22 @@ pub fn DatabaseSettings() -> impl IntoView {
     let import_icon = create_memo(move |_| "arrow-up-tray");
     let export_icon = create_memo(move |_| "arrow-down-tray");
 
+    let handle_export = move |_| {
+        spawn_local(async move {
+            let response = invoke("export_passwords", wasm_bindgen::JsValue::NULL).await;
+            match serde_wasm_bindgen::from_value(response) {
+                Ok(()) => {
+                    // Erfolg
+                    set_status.set("Export erfolgreich!".to_string());
+                }
+                Err(_) => {
+                    // Fehler
+                    set_status.set("Export fehlgeschlagen!".to_string());
+                }
+            }
+        });
+    };
+
     view! {
         <div class="flex justify-center">
             <div class="max-w-xl w-full space-y-8">
@@ -34,6 +52,14 @@ pub fn DatabaseSettings() -> impl IntoView {
                         view! {
                             <div class="text-primary-100 text-sm text-center">
                                 {error.get()}
+                            </div>
+                        }
+                    )}
+
+                    {move || (!status.get().is_empty()).then(||
+                        view! {
+                            <div class="text-primary-100 text-sm text-center">
+                                {status.get()}
                             </div>
                         }
                     )}
@@ -191,6 +217,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                             <button
                                 type="button"
                                 class="w-full flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                on:click=handle_export
                             >
                                 <Icon icon=export_icon.into() class="w-5 h-5 text-primary-100" />
                                 <span>"Als CSV exportieren"</span>

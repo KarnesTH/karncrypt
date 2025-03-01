@@ -10,6 +10,7 @@ use tauri::State;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 pub use utils::Auth;
+pub use utils::BackupManager;
 pub use utils::Config;
 pub use utils::Encryption;
 pub use utils::TokenManager;
@@ -171,6 +172,19 @@ async fn complete_setup(custom_path: Option<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
+/// Copy text to the clipboard.
+///
+/// # Arguments
+///
+/// * `text` - The text to copy to the clipboard.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the text cannot be copied to the clipboard.
 async fn copy_to_clipboard(app_handle: AppHandle, text: String) -> Result<(), String> {
     app_handle
         .clipboard()
@@ -179,6 +193,15 @@ async fn copy_to_clipboard(app_handle: AppHandle, text: String) -> Result<(), St
 }
 
 #[tauri::command]
+/// Get all passwords.
+///
+/// # Returns
+///
+/// A Result containing a vector of all password entries or an error.
+///
+/// # Errors
+///
+/// If the passwords cannot be fetched.
 async fn get_passwords(
     state: State<'_, PasswordManagerState>,
 ) -> Result<Vec<PasswordEntry>, String> {
@@ -203,6 +226,19 @@ async fn get_passwords(
 }
 
 #[tauri::command]
+/// Add a new password.
+///
+/// # Arguments
+///
+/// * `service` - The service for which the password is used.
+/// * `username` - The username for the service.
+/// * `password` - The password for the service.
+/// * `url` - The URL of the service.
+/// * `notes` - Optional notes for the password.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
 async fn add_password(
     state: State<'_, PasswordManagerState>,
     service: String,
@@ -232,6 +268,24 @@ async fn add_password(
 }
 
 #[tauri::command]
+/// Update a password.
+///
+/// # Arguments
+///
+/// * `id` - The ID of the password entry to update.
+/// * `service` - The service for which the password is used.
+/// * `username` - The username for the service.
+/// * `password` - The password for the service.
+/// * `url` - The URL of the service.
+/// * `notes` - Optional notes for the password.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the password cannot be updated.
 async fn update_password(
     state: State<'_, PasswordManagerState>,
     id: i32,
@@ -268,6 +322,19 @@ async fn update_password(
 }
 
 #[tauri::command]
+/// Delete a password.
+///
+/// # Arguments
+///
+/// * `id` - The ID of the password entry to delete.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the password cannot be deleted.
 async fn delete_password(
     app_handle: AppHandle,
     state: State<'_, PasswordManagerState>,
@@ -329,6 +396,41 @@ async fn verify_master_password(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn export_passwords(
+    app: AppHandle,
+    state: State<'_, PasswordManagerState>,
+) -> Result<(), String> {
+    let state = state.0.lock().unwrap();
+    let pm = state.as_ref().ok_or("Not logged in")?;
+
+    let file_path = app
+        .dialog()
+        .file()
+        .add_filter("CSV", &["csv"])
+        .blocking_save_file();
+
+    let path = match file_path {
+        Some(path) => match path.into_path() {
+            Ok(path) => path,
+            Err(e) => {
+                error!("Failed to get file path: {}", e);
+                return Err(e.to_string());
+            }
+        },
+        None => {
+            info!("Export cancelled by user");
+            return Err("Export abgebrochen".to_string());
+        }
+    };
+
+    let encryption = &pm.db.encryption;
+    let bm = BackupManager::new(encryption.clone());
+    bm.export_csv(&pm.db, &path).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Run the Tauri application.
 ///
@@ -363,7 +465,8 @@ pub fn run() {
             add_password,
             update_password,
             delete_password,
-            verify_master_password
+            verify_master_password,
+            export_passwords
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -18,7 +18,7 @@ pub struct ImportResult {
 }
 
 pub struct BackupManager {
-    encryption: Encryption,
+    pub encryption: Encryption,
 }
 
 impl BackupManager {

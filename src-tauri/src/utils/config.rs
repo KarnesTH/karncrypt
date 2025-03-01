@@ -224,7 +224,7 @@ impl Config {
             std::fs::create_dir_all(&db_dir)?;
         }
 
-        Ok(db_dir)
+        Ok(db_dir.join(&self.database.db_name))
     }
 
     /// Get the directory for backups.
