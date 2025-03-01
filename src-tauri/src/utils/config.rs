@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Config {
     pub logging: LogConfig,
     pub database: DatabaseConfig,
@@ -13,37 +13,38 @@ pub struct Config {
     pub backup: BackupConfig,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub is_initialized: bool,
     pub auto_logout_duration: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct LogConfig {
     pub level: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub db_name: String,
     pub db_custom_path: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct GeneratorConfig {
     pub default_length: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct BackupConfig {
     pub enabled: bool,
     pub interval: BackupInterval,
     pub max_backups: usize,
     pub backup_path: Option<String>,
+    pub last_backup: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum BackupInterval {
     Daily,
     Weekly,
@@ -76,6 +77,7 @@ impl Default for Config {
                 interval: BackupInterval::default(),
                 max_backups: 7,
                 backup_path: None,
+                last_backup: None,
             },
         }
     }
@@ -278,6 +280,7 @@ mod tests {
         assert!(matches!(config.backup.interval, BackupInterval::Weekly));
         assert_eq!(config.backup.max_backups, 7);
         assert!(config.backup.backup_path.is_none());
+        assert!(config.backup.last_backup.is_none());
     }
 
     #[test]

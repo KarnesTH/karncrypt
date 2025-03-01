@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use log::{error, info};
@@ -295,6 +295,92 @@ impl Database {
             }
         }
     }
+
+    /// Create a database dump.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to save the dump file.
+    /// * `master_password` - The master password for the database.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the dump cannot be created.
+    pub fn create_dump(
+        &self,
+        path: &Path,
+        master_password: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let key = self.encryption.get_key(master_password)?;
+
+        self.connection.execute_batch(&format!(
+            "ATTACH DATABASE '{}' AS backup KEY '{}';",
+            path.to_str().ok_or("Invalid path")?,
+            key
+        ))?;
+
+        self.connection
+            .execute_batch("SELECT sqlcipher_export('backup');")?;
+
+        self.connection.execute_batch("DETACH DATABASE backup;")?;
+
+        let verify_conn = Connection::open(path)?;
+        let result = verify_conn.execute_batch("SELECT count(*) FROM sqlite_master;");
+
+        if result.is_ok() {
+            return Err("Database dump is not encrypted!".into());
+        }
+
+        Ok(())
+    }
+
+    /// Restore a database from a dump file.
+    ///
+    /// # Arguments
+    ///
+    /// * `dump_path` - The path to the dump file.
+    /// * `master_password` - The master password for the database.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the dump cannot be restored.
+    pub fn restore_from_dump(
+        &self,
+        dump_path: &Path,
+        master_password: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let key = self.encryption.get_key(master_password)?;
+
+        self.connection
+            .execute_batch(&format!("PRAGMA key = '{}'", key))?;
+
+        self.connection.execute_batch(&format!(
+            "ATTACH DATABASE '{}' AS dump KEY '{}'",
+            dump_path.to_str().ok_or("Invalid path")?,
+            key
+        ))?;
+
+        self.connection.execute_batch(
+            "BEGIN TRANSACTION;
+                 DELETE FROM passwords;
+                 DELETE FROM user;
+                 INSERT INTO user SELECT * FROM dump.user;
+                 INSERT INTO passwords SELECT * FROM dump.passwords;
+                 COMMIT;",
+        )?;
+
+        self.connection.execute_batch("DETACH DATABASE dump")?;
+
+        Ok(())
+    }
 }
 
 impl PasswordEntry {
@@ -335,6 +421,8 @@ impl PasswordEntry {
 
 #[cfg(test)]
 mod tests {
+    use crate::Auth;
+
     use super::*;
     use tempfile::TempDir;
 
@@ -473,5 +561,47 @@ mod tests {
 
         let entries = db.read_all::<PasswordEntry>().unwrap();
         assert!(entries.is_empty());
+    }
+
+    #[test]
+    fn test_database_dump() {
+        let (temp, db) = setup_test_db();
+
+        let auth = Auth::new(&db);
+        auth.register("testuser", "testpass").unwrap();
+
+        let dump_path = temp.path().join("test_dump.db");
+        db.create_dump(&dump_path, "test_password").unwrap();
+
+        assert!(dump_path.exists());
+
+        let unencrypted_access = Connection::open(&dump_path);
+        assert!(unencrypted_access.is_ok());
+        assert!(unencrypted_access
+            .unwrap()
+            .execute_batch("SELECT count(*) FROM sqlite_master;")
+            .is_err());
+    }
+
+    #[test]
+    fn test_database_restore() {
+        let (temp, db) = setup_test_db();
+
+        let auth = Auth::new(&db);
+        auth.register("testuser", "testpass").unwrap();
+
+        let dump_path = temp.path().join("test_dump.db");
+        db.create_dump(&dump_path, "test_password").unwrap();
+
+        let new_db_path = temp.path().join("new.db");
+        let new_db = Database::new(new_db_path, "test_password", &[0u8; 16]).unwrap();
+
+        new_db
+            .restore_from_dump(&dump_path, "test_password")
+            .unwrap();
+
+        let users = new_db.read_all::<User>().unwrap();
+        assert_eq!(users.len(), 1);
+        assert_eq!(users[0].username, "testuser");
     }
 }
