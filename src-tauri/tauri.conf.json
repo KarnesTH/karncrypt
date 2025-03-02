@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "password-manager",
+  "productName": "karncrypt",
   "version": "0.1.0",
-  "identifier": "de.password-manager.app",
+  "identifier": "de.karncrypt.app",
   "build": {
     "beforeDevCommand": "trunk serve",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Passwort Manager",
+        "title": "KarnCrypt - Passwort Manager by KarnesTH",
         "width": 1024,
         "height": 576,
         "minWidth": 1024,

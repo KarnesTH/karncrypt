@@ -1,39 +1,44 @@
-# Password Manager
+# 🔐 KarnCrypt
 
-A secure, offline password manager built with Rust.
+A secure, offline password manager built with Rust, Tauri and Leptos.
 
-## About
+## 🎯 About
 
-This application allows you to securely store and manage your passwords locally on your device. All data is stored offline with strong encryption.
+KarnCrypt allows you to securely manage your passwords locally on your device. All data is stored offline with strong encryption.
 
-## Features
+## ✨ Features
 
 - 🔒 Secure password storage
-- 🔑 Password generator
-- 💾 Completely offline
-- 📱 Cross-platform support (Windows, macOS, Linux)
+- 🎲 Password generator
+- 💾 Completely offline usage
+- 🖥️ Cross-platform support (Windows, macOS, Linux)
+- 🛡️ Encrypted local database
+- 🔐 Master password protection
 
-## Current State
+## 🚀 Current State
 
 The application is in active development. The core functionality is complete and usable:
-- Password management (add, edit, delete)
-- Password generation
-- Secure local storage
-- Master password protection
+- ✅ Password management (add, edit, delete)
+- ✅ Password generation
+- ✅ Secure local storage
+- ✅ Master password protection
+- ✅ Backup & Export/Import system
 
-## Planned Features
+## 📝 Planned Features
 
-- 💾 Backup & Export/Import system
-- ⚙️ Settings panel
+- ⚙️ Settings menu
 - 🏥 Password health check
 - 🔄 Auto-updates
-- 🌈 Theming support
+- 🎨 Theme support
 - 🌍 Multi-language support (currently German only)
 
-## Note
+## 📢 Note
 
 The current user interface is only available in German.
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+Developed with 💜 by KarnesTH

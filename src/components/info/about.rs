@@ -6,7 +6,7 @@ pub fn About() -> impl IntoView {
         <div class="space-y-6">
             <div>
                 <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                    "Passwort Manager"
+                    "KarnCrypt"
                 </h3>
                 <p class="text-gray-300">
                 "Dein persönlicher Passwort-Manager, der Sicherheit und Benutzerfreundlichkeit vereint."
