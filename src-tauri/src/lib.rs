@@ -396,37 +396,39 @@ async fn verify_master_password(
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 async fn export_passwords(
     app: AppHandle,
     state: State<'_, PasswordManagerState>,
+    master_pass: String,
 ) -> Result<(), String> {
     let state = state.0.lock().unwrap();
     let pm = state.as_ref().ok_or("Not logged in")?;
 
-    let file_path = app
+    let confirmed = app
         .dialog()
-        .file()
-        .add_filter("CSV", &["csv"])
-        .blocking_save_file();
+        .message("Möchten Sie Ihre Passwörter wirklich exportieren?")
+        .title("Passwörter exportieren")
+        .buttons(MessageDialogButtons::YesNo)
+        .blocking_show();
 
-    let path = match file_path {
-        Some(path) => match path.into_path() {
-            Ok(path) => path,
-            Err(e) => {
-                error!("Failed to get file path: {}", e);
-                return Err(e.to_string());
-            }
-        },
-        None => {
-            info!("Export cancelled by user");
-            return Err("Export abgebrochen".to_string());
+    if confirmed {
+        if pm
+            .verify_master_password(&master_pass)
+            .map_err(|e| e.to_string())?
+        {
+            let path = dirs::document_dir()
+                .ok_or("Failed to get document directory")?
+                .join("karnes-development")
+                .join("password-manager")
+                .join("export");
+
+            std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+
+            let bm = BackupManager::new(&pm.db, &pm.token_manager);
+            bm.export_csv(&path).map_err(|e| e.to_string())?;
         }
-    };
-
-    let encryption = &pm.db.encryption;
-    let bm = BackupManager::new(encryption.clone());
-    bm.export_csv(&pm.db, &path).map_err(|e| e.to_string())?;
+    }
 
     Ok(())
 }

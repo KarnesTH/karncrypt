@@ -8,26 +8,13 @@ struct VerifyPasswordArgs<'a> {
     master_pass: &'a str,
 }
 
-#[derive(Serialize)]
-struct ClipboardArgs<'a> {
-    text: &'a str,
-}
-
 #[component]
-pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) -> impl IntoView {
-    let password = create_signal(password).0;
+pub fn PasswordDialog(
+    #[prop(into)] on_close: Callback<()>,
+    #[prop(into)] on_verify: Callback<(bool, String)>,
+) -> impl IntoView {
     let (master_password, set_master_password) = create_signal(String::new());
     let (error, set_error) = create_signal(String::new());
-    let (password_verified, set_password_verified) = create_signal(false);
-    let (is_copied, set_is_copied) = create_signal(false);
-
-    let copy_icon = create_memo(move |_| {
-        if is_copied.get() {
-            "check"
-        } else {
-            "clipboard"
-        }
-    });
 
     let exit_icon = create_memo(move |_| "x-mark");
     let key_icon = create_memo(move |_| "key");
@@ -52,23 +39,13 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
             let response = invoke("verify_master_password", args).await;
             match serde_wasm_bindgen::from_value::<bool>(response) {
                 Ok(true) => {
-                    set_password_verified.set(true);
-                    set_error.set(String::new());
+                    set_error.set("".into());
+                    on_verify.call((true, master_pass));
+                    on_close.call(());
                 }
                 _ => {
                     set_error.set("Falsches Master-Passwort".into());
                 }
-            }
-        });
-    };
-
-    let copy_to_clipboard = move || {
-        let pass = password.get();
-        spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&ClipboardArgs { text: &pass }).unwrap();
-            if serde_wasm_bindgen::from_value::<()>(invoke("copy_to_clipboard", args).await).is_ok()
-            {
-                set_is_copied.set(true);
             }
         });
     };
@@ -80,10 +57,10 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                     <h2 class="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center">
                         <div class="flex items-center">
                             <Icon
-                                icon=key_icon.into()
+                                icon=master_key_icon.into()
                                 class="w-8 h-8 mr-2 text-primary-100"
                             />
-                            "Passwort anzeigen"
+                            "Master-Passwort"
                         </div>
                     </h2>
                     <button
@@ -94,72 +71,41 @@ pub fn PasswordDialog(password: String, #[prop(into)] on_close: Callback<()>) ->
                     </button>
                 </div>
 
-                {move || {
-                    if !password_verified.get() {
-                    view! {
-                        <form on:submit=verify_password class="space-y-4">
-                            <div>
-                                <label class="block text-white text-sm font-bold mb-2 flex items-center">
-                                    <Icon icon=master_key_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
-                                    "Master-Passwort"
-                                </label>
-                                <input
-                                    type="password"
-                                    class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100"
-                                    placeholder="Gib dein Master-Passwort ein"
-                                    on:input=move |ev| set_master_password.set(event_target_value(&ev))
-                                    prop:value=master_password
-                                />
-                            </div>
+                <form on:submit=verify_password class="space-y-4">
+                    <div>
+                        <label class="block text-white text-sm font-bold mb-2 flex items-center">
+                            <Icon icon=key_icon.into() class="w-4 h-4 mr-2 text-primary-100" />
+                            "Master-Passwort"
+                        </label>
+                        <input
+                            type="password"
+                            class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100"
+                            placeholder="Gib dein Master-Passwort ein"
+                            on:input=move |ev| set_master_password.set(event_target_value(&ev))
+                            prop:value=master_password
+                        />
+                    </div>
 
-                            {move || {
-                                if !error.get().is_empty() {
-                                    view! {
-                                        <div class="text-primary-100 text-sm">
-                                            {error.get()}
-                                        </div>
-                                    }
-                                } else {
-                                    view! { <div/> }
-                                }
-                            }}
-
-                            <button
-                                type="submit"
-                                class="w-full bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90 flex items-center justify-center"
-                            >
-                                <Icon icon=check_icon.into() class="w-5 h-5 mr-2" />
-                                "Bestätigen"
-                            </button>
-                        </form>
-                        }.into_view()
-                    } else {
-                        view! {
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-white text-sm font-bold mb-2">
-                                        "Passwort"
-                                    </label>
-                                    <div class="flex">
-                                        <input
-                                            type="text"
-                                            readonly
-                                            class="flex-grow p-2 rounded-l bg-background text-white border border-r-0 border-gray-600 focus:outline-none"
-                                            prop:value=password.get()
-                                        />
-                                        <button
-                                            class="px-4 rounded-r bg-primary-200 hover:bg-primary-300 text-white border border-l-0 border-primary-200 hover:border-primary-300"
-                                            on:click=move |_| copy_to_clipboard()
-                                            on:mouseleave=move |_| set_is_copied.set(false)
-                                        >
-                                            <Icon icon=copy_icon.into() class="w-5 h-5" />
-                                        </button>
-                                    </div>
+                    {move || {
+                        if !error.get().is_empty() {
+                            view! {
+                                <div class="text-primary-100 text-sm">
+                                    {error.get()}
                                 </div>
-                            </div>
-                        }.into_view()
-                    }
-                }}
+                            }
+                        } else {
+                            view! { <div/> }
+                        }
+                    }}
+
+                    <button
+                        type="submit"
+                        class="w-full bg-gradient-primary text-white px-4 py-2 rounded hover:opacity-90 flex items-center justify-center"
+                    >
+                        <Icon icon=check_icon.into() class="w-5 h-5 mr-2" />
+                        "Bestätigen"
+                    </button>
+                </form>
             </div>
         </div>
     }

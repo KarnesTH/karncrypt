@@ -1,5 +1,6 @@
-use crate::app::invoke;
+use crate::{app::invoke, components::password_manager::PasswordDialog};
 use leptos::*;
+use serde::Serialize;
 
 use crate::components::icons::Icon;
 
@@ -11,6 +12,12 @@ enum BackupInterval {
     Yearly,
 }
 
+#[derive(Serialize)]
+struct ExportPasswordArgs<'a> {
+    #[serde(rename = "masterPass")]
+    master_pass: &'a str,
+}
+
 #[component]
 pub fn DatabaseSettings() -> impl IntoView {
     let (db_path, _set_db_path) = create_signal(String::new());
@@ -18,7 +25,8 @@ pub fn DatabaseSettings() -> impl IntoView {
     let (auto_backup, set_auto_backup) = create_signal(false);
     let (backup_interval, set_backup_interval) = create_signal(BackupInterval::Weekly);
     let (error, _set_error) = create_signal(String::new());
-    let (status, set_status) = create_signal(String::new());
+    let (im_export_status, set_im_export_status) = create_signal(String::new());
+    let (show_password_dialog, set_show_password_dialog) = create_signal(false);
 
     let folder_icon = create_memo(move |_| "folder-open");
     let backup_icon = create_memo(move |_| "archive-box");
@@ -29,19 +37,7 @@ pub fn DatabaseSettings() -> impl IntoView {
     let export_icon = create_memo(move |_| "arrow-down-tray");
 
     let handle_export = move |_| {
-        spawn_local(async move {
-            let response = invoke("export_passwords", wasm_bindgen::JsValue::NULL).await;
-            match serde_wasm_bindgen::from_value(response) {
-                Ok(()) => {
-                    // Erfolg
-                    set_status.set("Export erfolgreich!".to_string());
-                }
-                Err(_) => {
-                    // Fehler
-                    set_status.set("Export fehlgeschlagen!".to_string());
-                }
-            }
-        });
+        set_show_password_dialog.set(true);
     };
 
     view! {
@@ -52,14 +48,6 @@ pub fn DatabaseSettings() -> impl IntoView {
                         view! {
                             <div class="text-primary-100 text-sm text-center">
                                 {error.get()}
-                            </div>
-                        }
-                    )}
-
-                    {move || (!status.get().is_empty()).then(||
-                        view! {
-                            <div class="text-primary-100 text-sm text-center">
-                                {status.get()}
                             </div>
                         }
                     )}
@@ -223,6 +211,13 @@ pub fn DatabaseSettings() -> impl IntoView {
                                 <span>"Als CSV exportieren"</span>
                             </button>
                         </div>
+                        {move || (!im_export_status.get().is_empty()).then(||
+                            view! {
+                                <div class="text-primary-100 text-sm text-center">
+                                    {im_export_status.get()}
+                                </div>
+                            }
+                        )}
                     </fieldset>
 
                     <div class="flex justify-end pt-4 border-t border-gray-600">
@@ -235,6 +230,37 @@ pub fn DatabaseSettings() -> impl IntoView {
                     </div>
                 </form>
             </div>
+            {move || {
+                if show_password_dialog.get() {
+                    view! {
+                        <PasswordDialog
+                            on_verify=move |(verified, password): (bool, String)| {
+                                if verified {
+                                    spawn_local(async move {
+                                        let args = serde_wasm_bindgen::to_value(&ExportPasswordArgs {
+                                            master_pass: &password,
+                                        })
+                                        .unwrap();
+                                        let response = invoke("export_passwords", args).await;
+                                        match serde_wasm_bindgen::from_value(response) {
+                                            Ok(()) => {
+                                                set_im_export_status.set("Export erfolgreich!".to_string());
+                                            }
+                                            Err(_) => {
+                                                set_im_export_status.set("Export fehlgeschlagen!".to_string());
+                                            }
+                                        }
+                                    });
+                                }
+                                set_show_password_dialog.set(false);
+                            }
+                            on_close=move |_| set_show_password_dialog.set(false)
+                        />
+                    }.into_view()
+                } else {
+                    view! { <div/> }.into_view()
+                }
+            }}
         </div>
     }
 }

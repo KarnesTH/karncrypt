@@ -1,10 +1,12 @@
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use ring::rand::{SecureRandom, SystemRandom};
 
 use crate::{Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
 
 pub struct PasswordManager {
     pub db: Database,
-    token_manager: TokenManager,
+    pub token_manager: TokenManager,
 }
 
 impl PasswordManager {
@@ -158,6 +160,9 @@ impl PasswordManager {
         let session = self.token_manager.get_session()?;
         let user_id = session.get_user_id();
 
+        let encryptd = self.db.encryption.encrypt(&password).unwrap();
+        let encoded = STANDARD.encode(&encryptd);
+
         let notes = if let Some(notes) = notes {
             if notes.len() > 1000 {
                 return Err("Notes must be less than 1000 characters".into());
@@ -173,7 +178,7 @@ impl PasswordManager {
             user_id,
             service,
             username,
-            password,
+            password: encoded,
             url,
             notes,
             created_at: chrono::Utc::now().to_rfc3339(),
@@ -216,6 +221,9 @@ impl PasswordManager {
         let session = self.token_manager.get_session()?;
         let user_id = session.get_user_id();
 
+        let encryptd = self.db.encryption.encrypt(&password).unwrap();
+        let encoded = STANDARD.encode(&encryptd);
+
         let notes = if let Some(notes) = notes {
             if notes.len() > 1000 {
                 return Err("Notes must be less than 1000 characters".into());
@@ -231,7 +239,7 @@ impl PasswordManager {
             user_id,
             service,
             username,
-            password,
+            password: encoded,
             url,
             notes,
             created_at: "".to_string(),

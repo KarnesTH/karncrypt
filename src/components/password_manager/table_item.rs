@@ -22,12 +22,22 @@ pub fn TableItem(
 ) -> impl IntoView {
     let (show_password_dialog, set_show_password_dialog) = create_signal(false);
     let (is_copied_username, set_is_copied_username) = create_signal(false);
+    let (password_verified, set_password_verified) = create_signal(false);
+    let (is_copied_password, set_is_copied_password) = create_signal(false);
 
     let eye_icon = create_memo(move |_| "eye");
     let pencil_icon = create_memo(move |_| "pencil-square");
     let trash_icon = create_memo(move |_| "trash");
     let username_icon = create_memo(move |_| {
         if is_copied_username.get() {
+            "check"
+        } else {
+            "clipboard"
+        }
+    });
+
+    let clipboard_icon = create_memo(move |_| {
+        if is_copied_password.get() {
             "check"
         } else {
             "clipboard"
@@ -63,13 +73,48 @@ pub fn TableItem(
             </td>
             <td class="p-4">
                 <div class="flex items-center text-white">
-                    <span class="whitespace-nowrap">"••••••••"</span>
+                    {move || {
+                        if !password_verified.get() {
+                            view! {
+                                <span class="whitespace-nowrap">"••••••••"</span>
+                            }.into_view()
+                        } else {
+                            view! {
+                                <span class="whitespace-nowrap">{item.get().password}</span>
+                            }.into_view()
+                        }
+                    }}
+
                     <button
                         class="ml-2 text-gray-400 hover:text-primary-100"
                         on:click=move |_| set_show_password_dialog.set(true)
                     >
                         <Icon icon=eye_icon.into() class="w-4 h-4" />
                     </button>
+                    {move || {
+                        if password_verified.get() {
+                            view! {
+                                <button
+                                    class="ml-2 text-gray-400 hover:text-primary-100"
+                                    on:click=move |_| {
+                                        let password = item.get().password.clone();
+                                        spawn_local(async move {
+                                            let args = serde_wasm_bindgen::to_value(&ClipboardArgs {
+                                                text: &password
+                                            }).unwrap();
+                                            if serde_wasm_bindgen::from_value::<()>(invoke("copy_to_clipboard", args).await).is_ok() {
+                                                set_is_copied_password.set(true);
+                                            }
+                                        });
+                                    }
+                                >
+                                    <Icon icon=clipboard_icon.into() class="w-4 h-4" />
+                                </button>
+                            }.into_view()
+                        } else {
+                            view! { <div/> }.into_view()
+                        }
+                    }}
                 </div>
             </td>
             <td class="p-4">
@@ -93,7 +138,7 @@ pub fn TableItem(
                 if show_password_dialog.get() {
                     view! {
                         <PasswordDialog
-                            password=item.get().password
+                        on_verify=move |(verified, _)| set_password_verified.set(verified)
                             on_close=move |_| set_show_password_dialog.set(false)
                         />
                     }.into_view()

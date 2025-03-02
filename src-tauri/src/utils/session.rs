@@ -75,7 +75,7 @@ impl SessionToken {
 
 pub struct TokenManager {
     token_path: PathBuf,
-    encryption: Encryption,
+    pub encryption: Encryption,
 }
 
 impl TokenManager {
