@@ -61,10 +61,10 @@ pub fn TableItem(
 
     view! {
         <tr class="hover:bg-background">
-            <td class="p-4 text-white whitespace-nowrap">{item.get().service}</td>
+            <td class="p-4 text-white whitespace-nowrap">{move || item.get().service}</td>
             <td class="p-4">
                 <div class="flex items-center text-white whitespace-nowrap">
-                    {item.get().username}
+                    {move || item.get().username}
                     <button
                         class="ml-2 text-gray-400 hover:text-primary-100"
                         on:click=move |_| {

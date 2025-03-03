@@ -200,6 +200,19 @@ pub fn DatabaseSettings() -> impl IntoView {
                             <button
                                 type="button"
                                 class="w-full flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                on:click=move |_| {
+                                    spawn_local(async move {
+                                        let response = invoke("import_passwords", wasm_bindgen::JsValue::NULL).await;
+                                        match serde_wasm_bindgen::from_value(response) {
+                                            Ok(()) => {
+                                                set_im_export_status.set("Import erfolgreich!".to_string());
+                                            }
+                                            Err(_) => {
+                                                set_im_export_status.set("Import fehlgeschlagen!".to_string());
+                                            }
+                                        }
+                                    });
+                                }
                             >
                                 <Icon icon=import_icon.into() class="w-5 h-5 text-primary-100" />
                                 <span>"CSV importieren"</span>

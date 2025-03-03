@@ -1,4 +1,7 @@
-use crate::{app::invoke, components::icons::Icon};
+use crate::{
+    app::invoke,
+    components::{icons::Icon, password_manager::password_dialog::PasswordDialog},
+};
 use leptos::*;
 use serde::Serialize;
 
@@ -15,6 +18,12 @@ struct GeneratePasswordArgs {
     length: usize,
 }
 
+#[derive(Serialize)]
+struct DecryptPasswordArgs<'a> {
+    #[serde(rename = "encryptedPassword")]
+    encrypted_password: &'a str,
+}
+
 #[component]
 pub fn PasswordModal(
     #[prop(into)] mode: ModalMode,
@@ -27,6 +36,9 @@ pub fn PasswordModal(
     let (url, set_url) = create_signal(String::new());
     let (notes, set_notes) = create_signal(String::new());
     let (show_password, set_show_password) = create_signal(false);
+    let (show_password_dialog, set_show_password_dialog) = create_signal(false);
+    let (decrypted_password, set_decrypted_password) = create_signal(String::new());
+    let (password_verified, set_password_verified) = create_signal(false);
 
     let eye_icon = create_memo(move |_| {
         if show_password.get() {
@@ -119,7 +131,13 @@ pub fn PasswordModal(
                             <div class="relative">
                                 <input
                                     type=move || if show_password.get() { "text" } else { "password" }
-                                    prop:value=password
+                                    value=move || {
+                                        if matches!(mode.get(), ModalMode::Edit(_)) && password_verified.get() {
+                                            decrypted_password
+                                        } else {
+                                            password
+                                        }
+                                    }
                                     class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100 pr-20"
                                     on:input=move |ev| set_password.set(event_target_value(&ev))
                                 />
@@ -127,7 +145,13 @@ pub fn PasswordModal(
                                     <button
                                         type="button"
                                         class="px-2 text-gray-400 hover:text-primary-100"
-                                        on:click=move |_| set_show_password.update(|show| *show = !*show)
+                                        on:click=move |_| {
+                                            if matches!(mode.get(), ModalMode::Edit(_)) && !password_verified.get() {
+                                                set_show_password_dialog.set(true);
+                                            } else {
+                                                set_show_password.update(|show| *show = !*show)
+                                            }
+                                        }
                                     >
                                         <Icon icon=eye_icon.into() class="w-5 h-5" />
                                     </button>
@@ -226,6 +250,35 @@ pub fn PasswordModal(
                     </button>
                 </div>
             </div>
+            {move || {
+                if show_password_dialog.get() {
+                    view! {
+                        <PasswordDialog
+                        on_verify=move |verified| {
+                            if verified {
+                                let password = password.get().clone();
+                                spawn_local(async move {
+                                    let args = serde_wasm_bindgen::to_value(&DecryptPasswordArgs {
+                                        encrypted_password: &password,
+                                    })
+                                    .unwrap();
+                                    if let Ok(decrypted) =
+                                        serde_wasm_bindgen::from_value(invoke("decrypt_password", args).await)
+                                    {
+                                        set_decrypted_password.set(decrypted);
+                                    }
+                                });
+                            }
+                            set_password_verified.set(verified);
+                            set_show_password.set(true);
+                        }
+                            on_close=move |_| set_show_password_dialog.set(false)
+                        />
+                    }.into_view()
+                } else {
+                    view! { <div/> }.into_view()
+                }
+            }}
         </div>
     }
 }

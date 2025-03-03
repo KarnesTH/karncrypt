@@ -8,6 +8,7 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tauri::State;
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::MessageDialogKind;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 pub use utils::Auth;
 pub use utils::BackupManager;
@@ -397,6 +398,15 @@ async fn verify_master_password(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+/// Export all passwords to a CSV file.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the passwords cannot be exported.
 async fn export_passwords(
     app: AppHandle,
     state: State<'_, PasswordManagerState>,
@@ -407,13 +417,13 @@ async fn export_passwords(
     let confirmed = app
         .dialog()
         .message(
-            "Achtung: Die exportierte CSV-Datei wird Ihre Passwörter im Klartext enthalten.\n\n\
-            Bitte beachten Sie:\n\
-            • Bewahren Sie diese Datei sicher auf\n\
-            • Löschen Sie die Datei nach dem Import in ein anderes System\n\
-            • Schützen Sie die Datei ggf. mit einem zusätzlichen Passwort\n\
-            • Teilen Sie diese Datei niemals unverschlüsselt\n\n\
-            Möchten Sie trotzdem fortfahren?",
+            "Achtung: Die exportierte CSV-Datei wird deine Passwörter im Klartext enthalten.\n\n\
+            Bitte beachte:\n\
+            • Bewahre diese Datei sicher auf\n\
+            • Lösche die Datei nach dem Import in ein anderes System\n\
+            • Schütze die Datei ggf. mit einem zusätzlichen Passwort\n\
+            • Teile diese Datei niemals unverschlüsselt\n\n\
+            Möchtest du trotzdem fortfahren?",
         )
         .title("Sicherheitswarnung - Export")
         .buttons(MessageDialogButtons::YesNo)
@@ -435,7 +445,61 @@ async fn export_passwords(
     Ok(())
 }
 
+#[tauri::command]
+async fn import_passwords(
+    app: AppHandle,
+    state: State<'_, PasswordManagerState>,
+) -> Result<String, String> {
+    let state = state.0.lock().unwrap();
+    let pm = state.as_ref().ok_or("Not logged in")?;
+
+    let file_path = app.dialog().file().blocking_pick_file();
+
+    match file_path {
+        Some(path) => {
+            let path = path.as_path().unwrap();
+            let bm = BackupManager::new(&pm.db);
+            match bm.import_csv(&path) {
+                Ok(result) => {
+                    app.dialog()
+                        .message(format!(
+                            "Import erfolgreich:\n
+                            {} Einträge importiert\n
+                            {} Dublikate überstrungen\n
+                            {} Fehlerhaft",
+                            result.imported,
+                            result.skipped,
+                            result.errors.len()
+                        ))
+                        .title("Import abgeschlossen")
+                        .kind(MessageDialogKind::Info)
+                        .blocking_show();
+                    Ok("Import erfolgreich".to_string())
+                }
+                Err(e) => {
+                    error!("Failed to import passwords: {}", e);
+                    return Err(e.to_string());
+                }
+            }
+        }
+        None => Ok("Import abgebrochen".to_string()),
+    }
+}
+
 #[tauri::command(rename_all = "camelCase")]
+/// Decrypt a password.
+///
+/// # Arguments
+///
+/// * `encrypted_password` - The encrypted password to decrypt.
+///
+/// # Returns
+///
+/// A Result containing the decrypted password or an error.
+///
+/// # Errors
+///
+/// If the password cannot be decrypted.
 async fn decrypt_password(
     state: State<'_, PasswordManagerState>,
     encrypted_password: String,
@@ -462,12 +526,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(PasswordManagerState(Mutex::new(None)))
-        .on_window_event(|handle, event| {
-            if let tauri::WindowEvent::Destroyed = event {
+        .on_window_event(|handle, event| match &event {
+            tauri::WindowEvent::Destroyed => {
                 if let Some(pm) = &*handle.state::<PasswordManagerState>().0.lock().unwrap() {
                     pm.cleanup_on_exit().expect("error during exit cleanup");
                 }
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             login,
@@ -483,7 +548,8 @@ pub fn run() {
             delete_password,
             verify_master_password,
             export_passwords,
-            decrypt_password
+            decrypt_password,
+            import_passwords
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
