@@ -14,6 +14,12 @@ pub struct TableItemArgs {
     pub notes: String,
 }
 
+#[derive(Serialize)]
+struct DecryptPasswordArgs<'a> {
+    #[serde(rename = "encryptedPassword")]
+    encrypted_password: &'a str,
+}
+
 #[component]
 pub fn TableItem(
     item: TableItemArgs,
@@ -24,8 +30,15 @@ pub fn TableItem(
     let (is_copied_username, set_is_copied_username) = create_signal(false);
     let (password_verified, set_password_verified) = create_signal(false);
     let (is_copied_password, set_is_copied_password) = create_signal(false);
+    let (decrypted_password, set_decrypted_password) = create_signal(String::new());
 
-    let eye_icon = create_memo(move |_| "eye");
+    let eye_icon = create_memo(move |_| {
+        if password_verified.get() {
+            "eye-slash"
+        } else {
+            "eye"
+        }
+    });
     let pencil_icon = create_memo(move |_| "pencil-square");
     let trash_icon = create_memo(move |_| "trash");
     let username_icon = create_memo(move |_| {
@@ -80,14 +93,20 @@ pub fn TableItem(
                             }.into_view()
                         } else {
                             view! {
-                                <span class="whitespace-nowrap">{item.get().password}</span>
+                                <span class="whitespace-nowrap">{decrypted_password}</span>
                             }.into_view()
                         }
                     }}
 
                     <button
                         class="ml-2 text-gray-400 hover:text-primary-100"
-                        on:click=move |_| set_show_password_dialog.set(true)
+                        on:click=move |_| {
+                            if !password_verified.get() {
+                                set_show_password_dialog.set(true);
+                            } else {
+                                set_password_verified.set(false);
+                            }
+                        }
                     >
                         <Icon icon=eye_icon.into() class="w-4 h-4" />
                     </button>
@@ -97,7 +116,7 @@ pub fn TableItem(
                                 <button
                                     class="ml-2 text-gray-400 hover:text-primary-100"
                                     on:click=move |_| {
-                                        let password = item.get().password.clone();
+                                        let password = decrypted_password.get().clone();
                                         spawn_local(async move {
                                             let args = serde_wasm_bindgen::to_value(&ClipboardArgs {
                                                 text: &password
@@ -138,7 +157,23 @@ pub fn TableItem(
                 if show_password_dialog.get() {
                     view! {
                         <PasswordDialog
-                        on_verify=move |(verified, _)| set_password_verified.set(verified)
+                        on_verify=move |verified| {
+                            if verified {
+                                let password = item.get().password.clone();
+                                spawn_local(async move {
+                                    let args = serde_wasm_bindgen::to_value(&DecryptPasswordArgs {
+                                        encrypted_password: &password,
+                                    })
+                                    .unwrap();
+                                    if let Ok(decrypted) =
+                                        serde_wasm_bindgen::from_value(invoke("decrypt_password", args).await)
+                                    {
+                                        set_decrypted_password.set(decrypted);
+                                    }
+                                });
+                            }
+                            set_password_verified.set(verified);
+                        }
                             on_close=move |_| set_show_password_dialog.set(false)
                         />
                     }.into_view()

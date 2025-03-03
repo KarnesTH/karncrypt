@@ -11,7 +11,7 @@ struct VerifyPasswordArgs<'a> {
 #[component]
 pub fn PasswordDialog(
     #[prop(into)] on_close: Callback<()>,
-    #[prop(into)] on_verify: Callback<(bool, String)>,
+    #[prop(into)] on_verify: Callback<bool>,
 ) -> impl IntoView {
     let (master_password, set_master_password) = create_signal(String::new());
     let (error, set_error) = create_signal(String::new());
@@ -40,7 +40,7 @@ pub fn PasswordDialog(
             match serde_wasm_bindgen::from_value::<bool>(response) {
                 Ok(true) => {
                     set_error.set("".into());
-                    on_verify.call((true, master_pass));
+                    on_verify.call(true);
                     on_close.call(());
                 }
                 _ => {

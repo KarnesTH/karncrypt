@@ -400,37 +400,51 @@ async fn verify_master_password(
 async fn export_passwords(
     app: AppHandle,
     state: State<'_, PasswordManagerState>,
-    master_pass: String,
 ) -> Result<(), String> {
     let state = state.0.lock().unwrap();
     let pm = state.as_ref().ok_or("Not logged in")?;
 
     let confirmed = app
         .dialog()
-        .message("Möchten Sie Ihre Passwörter wirklich exportieren?")
-        .title("Passwörter exportieren")
+        .message(
+            "Achtung: Die exportierte CSV-Datei wird Ihre Passwörter im Klartext enthalten.\n\n\
+            Bitte beachten Sie:\n\
+            • Bewahren Sie diese Datei sicher auf\n\
+            • Löschen Sie die Datei nach dem Import in ein anderes System\n\
+            • Schützen Sie die Datei ggf. mit einem zusätzlichen Passwort\n\
+            • Teilen Sie diese Datei niemals unverschlüsselt\n\n\
+            Möchten Sie trotzdem fortfahren?",
+        )
+        .title("Sicherheitswarnung - Export")
         .buttons(MessageDialogButtons::YesNo)
         .blocking_show();
 
     if confirmed {
-        if pm
-            .verify_master_password(&master_pass)
-            .map_err(|e| e.to_string())?
-        {
-            let path = dirs::document_dir()
-                .ok_or("Failed to get document directory")?
-                .join("karnes-development")
-                .join("password-manager")
-                .join("export");
+        let path = dirs::document_dir()
+            .ok_or("Failed to get document directory")?
+            .join("karnes-development")
+            .join("password-manager")
+            .join("export");
 
-            std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
-            let bm = BackupManager::new(&pm.db, &pm.token_manager);
-            bm.export_csv(&path).map_err(|e| e.to_string())?;
-        }
+        let bm = BackupManager::new(&pm.db);
+        bm.export_csv(&path).map_err(|e| e.to_string())?;
     }
 
     Ok(())
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn decrypt_password(
+    state: State<'_, PasswordManagerState>,
+    encrypted_password: String,
+) -> Result<String, String> {
+    let state = state.0.lock().unwrap();
+    let pm = state.as_ref().ok_or("Not logged in")?;
+
+    pm.decrypt_password(&encrypted_password)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -468,7 +482,8 @@ pub fn run() {
             update_password,
             delete_password,
             verify_master_password,
-            export_passwords
+            export_passwords,
+            decrypt_password
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

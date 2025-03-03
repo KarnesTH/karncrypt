@@ -6,7 +6,7 @@ use crate::{Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
 
 pub struct PasswordManager {
     pub db: Database,
-    pub token_manager: TokenManager,
+    token_manager: TokenManager,
 }
 
 impl PasswordManager {
@@ -27,6 +27,8 @@ impl PasswordManager {
         let config = Config::load()?;
         let config_dir = Config::get_config_dir()?;
         let salt_file = config_dir.join(".salt");
+        let db_dir = config.get_db_dir()?;
+        let db_path = db_dir.join(&config.database.db_name);
 
         let salt = if salt_file.exists() {
             let salt_data = std::fs::read(&salt_file)?;
@@ -39,7 +41,7 @@ impl PasswordManager {
         };
 
         let encryption = Encryption::new(master_pass, &salt);
-        let db = Database::new(config.get_db_dir()?, master_pass, &salt)?;
+        let db = Database::new(db_path, master_pass, &salt)?;
         let token_manager = TokenManager::new(config_dir, encryption);
 
         Ok(Self { db, token_manager })
@@ -407,6 +409,25 @@ impl PasswordManager {
         let current_key = self.db.encryption.get_key(master_pass)?;
 
         Ok(test_key == current_key)
+    }
+
+    /// Decrypt a password.
+    ///
+    /// # Arguments
+    ///
+    /// * `password` - The password to decrypt.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the decrypted password or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the password cannot be decrypted.
+    pub fn decrypt_password(&self, password: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let decoded = STANDARD.decode(password.as_bytes()).unwrap();
+        let decrypted = self.db.encryption.decrypt(&decoded).unwrap();
+        Ok(decrypted)
     }
 }
 

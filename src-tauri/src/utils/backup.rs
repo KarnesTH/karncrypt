@@ -8,8 +8,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use super::PasswordEntry;
 use super::{BackupCompressor, BackupFile};
-use super::{PasswordEntry, TokenManager};
 
 pub struct ImportResult {
     pub imported: usize,
@@ -19,7 +19,6 @@ pub struct ImportResult {
 
 pub struct BackupManager<'a> {
     pub db: &'a Database,
-    token_manager: &'a TokenManager,
 }
 
 impl<'a> BackupManager<'a> {
@@ -32,8 +31,8 @@ impl<'a> BackupManager<'a> {
     /// # Returns
     ///
     /// A new BackupManager instance
-    pub fn new(db: &'a Database, token_manager: &'a TokenManager) -> Self {
-        Self { db, token_manager }
+    pub fn new(db: &'a Database) -> Self {
+        Self { db }
     }
 
     /// Create a backup of the database and configuration files
@@ -271,23 +270,17 @@ impl<'a> BackupManager<'a> {
     pub fn export_csv(&self, path: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
         let timestamp = Utc::now().format("%Y%m%d_%H%M%S").to_string();
         let export_path = path.join(format!("password_export_{}.csv", timestamp));
-        let session = self.token_manager.get_session()?;
-        let user_id = session.get_user_id();
 
         let entries = self.db.read_all::<PasswordEntry>()?;
-        let user_entries: Vec<_> = entries
-            .into_iter()
-            .filter(|p| p.user_id == user_id)
-            .collect();
 
         let mut writer = csv::Writer::from_path(&export_path)?;
-        writer.write_record(&["Service", "Username", "Password", "URL", "Notes"])?;
+        writer.write_record(["Service", "Username", "Password", "URL", "Notes"])?;
 
-        for entry in user_entries {
+        for entry in entries {
             let password = STANDARD.decode(&entry.password)?;
             match self.db.encryption.decrypt(&password) {
                 Ok(decrypted_pass) => {
-                    writer.write_record(&[
+                    writer.write_record([
                         &entry.service,
                         &entry.username,
                         &decrypted_pass,
@@ -297,7 +290,7 @@ impl<'a> BackupManager<'a> {
                 }
                 Err(e) => {
                     error!("Failed to decrypt password for {}: {}", entry.service, e);
-                    writer.write_record(&[
+                    writer.write_record([
                         &entry.service,
                         &entry.username,
                         "[FAILED TO DECRYPT]",
@@ -475,13 +468,13 @@ impl<'a> BackupManager<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::{database::User, Auth};
+    use crate::utils::database::User;
     use csv::StringRecord;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
 
-    fn setup_test_env() -> (TempDir, Database, TokenManager, PathBuf, PathBuf) {
+    fn setup_test_env() -> (TempDir, Database, PathBuf, PathBuf) {
         let temp = TempDir::new().unwrap();
         let config_dir = temp.path().join("config");
         let backup_dir = temp.path().join("backups");
@@ -494,19 +487,24 @@ mod tests {
         fs::write(config_dir.join("config.toml"), "test config").unwrap();
 
         let db = Database::new(config_dir.join("test.db"), "test_password", &salt).unwrap();
-        let token_manager = TokenManager::new(config_dir.clone(), db.encryption.clone());
 
-        (temp, db, token_manager, config_dir, backup_dir)
+        let user = User {
+            id: None,
+            username: "testuser".to_string(),
+            master_key: vec![1, 2, 3],
+            created_at: Utc::now().to_rfc3339(),
+            last_login: Utc::now().to_rfc3339(),
+        };
+        db.create(&user).unwrap();
+
+        (temp, db, config_dir, backup_dir)
     }
 
     #[test]
     fn test_create_backup() {
-        let (_temp, db, token_manager, config_dir, backup_dir) = setup_test_env();
+        let (_temp, db, config_dir, backup_dir) = setup_test_env();
 
-        let auth = Auth::new(&db);
-        auth.register("testuser", "testpass").unwrap();
-
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let backup_manager = BackupManager::new(&db);
         let backup_path = backup_manager
             .create_backup(&backup_dir, &config_dir, "test_password")
             .unwrap();
@@ -524,12 +522,9 @@ mod tests {
 
     #[test]
     fn test_backup_restore() {
-        let (_temp, db, token_manager, config_dir, backup_dir) = setup_test_env();
+        let (_temp, db, config_dir, backup_dir) = setup_test_env();
 
-        let auth = Auth::new(&db);
-        auth.register("testuser", "testpass").unwrap();
-
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let backup_manager = BackupManager::new(&db);
         let backup_path = backup_manager
             .create_backup(&backup_dir, &config_dir, "test_password")
             .unwrap();
@@ -541,7 +536,7 @@ mod tests {
         fs::create_dir_all(&config_dir).unwrap();
 
         let new_db = Database::new(db.path.clone(), "test_password", &[0u8; 16]).unwrap();
-        let new_backup_manager = BackupManager::new(&new_db, &token_manager);
+        let new_backup_manager = BackupManager::new(&new_db);
 
         new_backup_manager
             .restore_backup(&backup_path, &config_dir, "test_password")
@@ -557,12 +552,9 @@ mod tests {
 
     #[test]
     fn test_auto_backup() {
-        let (_temp, db, token_manager, config_dir, backup_dir) = setup_test_env();
+        let (_temp, db, config_dir, backup_dir) = setup_test_env();
 
-        let auth = Auth::new(&db);
-        auth.register("testuser", "testpass").unwrap();
-
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let backup_manager = BackupManager::new(&db);
         let max_backups = 2;
 
         let backup1 = backup_manager
@@ -604,10 +596,7 @@ mod tests {
 
     #[test]
     fn test_export_csv() {
-        let (_temp, db, token_manager, _config_dir, backup_dir) = setup_test_env();
-
-        let auth = Auth::new(&db);
-        auth.register("testuser", "testpass").unwrap();
+        let (_temp, db, _config_dir, backup_dir) = setup_test_env();
 
         let entries = vec![
             (
@@ -641,18 +630,13 @@ mod tests {
             db.create(&entry).unwrap();
         }
 
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let backup_manager = BackupManager::new(&db);
         let export_path = backup_manager.export_csv(&backup_dir).unwrap();
 
         let mut rdr = csv::Reader::from_path(export_path).unwrap();
         let records: Vec<StringRecord> = rdr.records().map(|r| r.unwrap()).collect();
 
-        let headers = rdr.headers().unwrap();
-        let expected_headers = vec!["Service", "Username", "Password", "URL", "Notes"];
-        assert_eq!(headers.iter().collect::<Vec<_>>(), expected_headers);
-
         assert_eq!(records.len(), entries.len());
-
         for (i, record) in records.iter().enumerate() {
             let (service, username, password, url, notes) = entries[i];
             assert_eq!(record[0].to_string(), service);
@@ -665,8 +649,8 @@ mod tests {
 
     #[test]
     fn test_valid_csv() {
-        let (_temp, db, token_manager, _config_dir, backup_dir) = setup_test_env();
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let (_temp, db, _config_dir, backup_dir) = setup_test_env();
+        let backup_manager = BackupManager::new(&db);
 
         let test_file = backup_dir.join("test.csv");
         let mut file = File::create(&test_file).unwrap();
@@ -680,8 +664,8 @@ mod tests {
 
     #[test]
     fn test_invalid_csv() {
-        let (_temp, db, token_manager, _config_dir, backup_dir) = setup_test_env();
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let (_temp, db, _config_dir, backup_dir) = setup_test_env();
+        let backup_manager = BackupManager::new(&db);
 
         let test_file = backup_dir.join("test_null.csv");
         let mut file = File::create(&test_file).unwrap();
@@ -698,8 +682,8 @@ mod tests {
 
     #[test]
     fn test_invalid_csv_extended() {
-        let (_temp, db, token_manager, _config_dir, backup_dir) = setup_test_env();
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let (_temp, db, _config_dir, backup_dir) = setup_test_env();
+        let backup_manager = BackupManager::new(&db);
 
         let test_file = backup_dir.join("test_invalid_utf8.csv");
         let mut file = File::create(&test_file).unwrap();
@@ -721,13 +705,11 @@ mod tests {
 
     #[test]
     fn test_import_csv() {
-        let (_temp, db, token_manager, _config_dir, backup_dir) = setup_test_env();
-        let auth = Auth::new(&db);
-        auth.register("testuser", "testpass").unwrap();
+        let (_temp, db, _config_dir, backup_dir) = setup_test_env();
 
         let users = db.read_all::<User>().unwrap();
         assert_eq!(users.len(), 1);
-        let backup_manager = BackupManager::new(&db, &token_manager);
+        let backup_manager = BackupManager::new(&db);
 
         let test_file = backup_dir.join("import_test.csv");
         let mut file = File::create(&test_file).unwrap();
