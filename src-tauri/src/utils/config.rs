@@ -27,7 +27,7 @@ pub struct LogConfig {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub db_name: String,
-    pub db_custom_path: Option<String>,
+    pub db_path: PathBuf,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -40,8 +40,9 @@ pub struct BackupConfig {
     pub enabled: bool,
     pub interval: BackupInterval,
     pub max_backups: usize,
-    pub backup_path: Option<String>,
+    pub backup_path: PathBuf,
     pub last_backup: Option<String>,
+    pub export_path: PathBuf,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -59,13 +60,17 @@ impl Default for BackupInterval {
 
 impl Default for Config {
     fn default() -> Self {
+        let config_dir = Config::get_config_dir().unwrap();
+        let export_path = dirs::document_dir()
+            .unwrap()
+            .join("karnes-development/karncrypt/exports");
         Config {
             logging: LogConfig {
                 level: "info".to_string(),
             },
             database: DatabaseConfig {
                 db_name: "pass.db".to_string(),
-                db_custom_path: None,
+                db_path: config_dir.clone(),
             },
             app: AppConfig {
                 is_initialized: false,
@@ -76,8 +81,9 @@ impl Default for Config {
                 enabled: false,
                 interval: BackupInterval::default(),
                 max_backups: 7,
-                backup_path: None,
+                backup_path: config_dir.join("backups"),
                 last_backup: None,
+                export_path,
             },
         }
     }
@@ -101,9 +107,7 @@ impl Config {
             let config_file = std::fs::read_to_string(config_path)?;
             Ok(toml::from_str(&config_file)?)
         } else {
-            let config = Config::default();
-            config.save()?;
-            Ok(config)
+            Ok(Config::default())
         }
     }
 
@@ -213,12 +217,8 @@ impl Config {
     /// # Errors
     ///
     /// If the database file path cannot be created.
-    pub fn get_db_dir(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let db_dir = if let Some(path) = &self.database.db_custom_path {
-            PathBuf::from(path)
-        } else {
-            Self::get_config_dir()?
-        };
+    pub fn get_db_dir(&self) -> Result<&PathBuf, Box<dyn std::error::Error>> {
+        let db_dir = &self.database.db_path;
 
         if !db_dir.exists() {
             std::fs::create_dir_all(&db_dir)?;
@@ -238,12 +238,8 @@ impl Config {
     /// # Errors
     ///
     /// If the backup directory path cannot be created.
-    pub fn get_backup_dir(&self) -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let backup_dir = if let Some(path) = &self.backup.backup_path {
-            PathBuf::from(path)
-        } else {
-            Self::get_config_dir()?.join("backups")
-        };
+    pub fn get_backup_dir(&self) -> Result<&PathBuf, Box<dyn std::error::Error>> {
+        let backup_dir = &self.backup.backup_path;
 
         if !backup_dir.exists() {
             std::fs::create_dir_all(&backup_dir)?;
@@ -272,14 +268,14 @@ mod tests {
 
         assert_eq!(config.logging.level, "info");
         assert_eq!(config.database.db_name, "pass.db");
-        assert!(config.database.db_custom_path.is_none());
+        assert!(config.database.db_path.is_dir());
         assert!(!config.app.is_initialized);
         assert_eq!(config.app.auto_logout_duration, 10);
         assert_eq!(config.generator.default_length, 16);
         assert!(!config.backup.enabled);
         assert!(matches!(config.backup.interval, BackupInterval::Weekly));
         assert_eq!(config.backup.max_backups, 7);
-        assert!(config.backup.backup_path.is_none());
+        assert!(config.backup.backup_path.is_dir());
         assert!(config.backup.last_backup.is_none());
     }
 
@@ -303,22 +299,6 @@ mod tests {
         let backup_dir = config.get_backup_dir().unwrap();
         assert!(backup_dir.exists());
         assert!(backup_dir.ends_with("backups"));
-    }
-
-    #[test]
-    fn test_custom_paths() {
-        let temp = setup_test_config();
-        let mut config = Config::default();
-
-        let custom_db = temp.path().join("custom_db");
-        config.database.db_custom_path = Some(custom_db.to_str().unwrap().to_string());
-        let db_dir = config.get_db_dir().unwrap();
-        assert_eq!(db_dir, custom_db);
-
-        let custom_backup = temp.path().join("custom_backup");
-        config.backup.backup_path = Some(custom_backup.to_str().unwrap().to_string());
-        let backup_dir = config.get_backup_dir().unwrap();
-        assert_eq!(backup_dir, custom_backup);
     }
 
     #[test]

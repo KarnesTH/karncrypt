@@ -3,6 +3,7 @@ mod utils;
 
 use log::{error, info};
 pub use password_manager::PasswordManager;
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::AppHandle;
 use tauri::Manager;
@@ -153,7 +154,25 @@ async fn check_is_initialized() -> Result<bool, String> {
     Ok(config.app.is_initialized)
 }
 
-#[tauri::command]
+#[derive(serde::Serialize)]
+struct DefaultConfig {
+    pub db_name: String,
+    pub db_path: String,
+    pub backup_path: String,
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn get_default_config() -> Result<DefaultConfig, String> {
+    let config = Config::load().unwrap();
+
+    Ok(DefaultConfig {
+        db_name: config.database.db_name.to_string(),
+        db_path: config.database.db_path.to_string_lossy().to_string(),
+        backup_path: config.backup.backup_path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
 /// Complete the app setup.
 ///
 /// # Arguments
@@ -163,10 +182,17 @@ async fn check_is_initialized() -> Result<bool, String> {
 /// # Returns
 ///
 /// A Result containing the completion status or an error.
-async fn complete_setup(custom_path: Option<String>) -> Result<(), String> {
-    let mut config = Config::load().map_err(|e| e.to_string())?;
+async fn complete_setup(
+    db_path: String,
+    db_name: String,
+    backup_path: String,
+) -> Result<(), String> {
+    info!("Complete Setup called!");
+    let mut config = Config::load().unwrap();
     config.app.is_initialized = true;
-    config.database.db_custom_path = custom_path;
+    config.database.db_name = db_name;
+    config.database.db_path = PathBuf::from(db_path);
+    config.backup.backup_path = PathBuf::from(backup_path);
     config.save().map_err(|e| e.to_string())?;
 
     Ok(())
@@ -514,6 +540,18 @@ async fn decrypt_password(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn select_folder(app: AppHandle) -> Result<String, String> {
+    let path = app.dialog().file().blocking_pick_folder();
+    match path {
+        Some(p) => {
+            let path = p.as_path().unwrap().to_str().unwrap().to_string();
+            Ok(path)
+        }
+        None => Err("No path selected".to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Run the Tauri application.
 ///
@@ -552,7 +590,9 @@ pub fn run() {
             verify_master_password,
             export_passwords,
             decrypt_password,
-            import_passwords
+            import_passwords,
+            select_folder,
+            get_default_config
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

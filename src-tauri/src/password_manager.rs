@@ -28,7 +28,7 @@ impl PasswordManager {
         let config_dir = Config::get_config_dir()?;
         let salt_file = config_dir.join(".salt");
         let db_dir = config.get_db_dir()?;
-        let db_path = db_dir.join(&config.database.db_name);
+        let db_path = db_dir.join(config.database.db_name.as_str());
 
         let salt = if salt_file.exists() {
             let salt_data = std::fs::read(&salt_file)?;

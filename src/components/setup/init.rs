@@ -3,12 +3,16 @@ use crate::{
     components::{auth::Register, icons::Icon},
 };
 use leptos::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 struct CompleteSetupArgs<'a> {
-    custom_path: Option<&'a str>,
+    #[serde(rename = "dbPath")]
+    db_path: &'a str,
+    #[serde(rename = "dbName")]
     db_name: &'a str,
+    #[serde(rename = "backupPath")]
+    backup_path: &'a str,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -17,6 +21,13 @@ enum InitStep {
     Restore,
     Database,
     MasterPassword,
+}
+
+#[derive(Deserialize)]
+struct Config {
+    db_name: String,
+    db_path: String,
+    backup_path: String,
 }
 
 #[component]
@@ -34,6 +45,39 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
     let arrow_right_icon = create_memo(move |_| "arrow-right");
     let backup_icon = create_memo(move |_| "archive-box");
     let arrow_left_icon = create_memo(move |_| "arrow-left");
+
+    spawn_local(async move {
+        let response = invoke("get_default_config", wasm_bindgen::JsValue::NULL).await;
+        if let Ok(config) = serde_wasm_bindgen::from_value::<Config>(response) {
+            set_db_name.set(config.db_name);
+            set_db_path.set(config.db_path);
+            set_backup_path.set(config.backup_path);
+        }
+    });
+
+    let handle_select_db_folder = move || {
+        let path = db_path.get();
+        spawn_local(async move {
+            let response = invoke("select_folder", wasm_bindgen::JsValue::NULL).await;
+            if let Ok(path) = serde_wasm_bindgen::from_value::<String>(response) {
+                set_db_path.set(path);
+            } else {
+                set_db_path.set(path);
+            }
+        });
+    };
+
+    let handle_select_backup_folder = move || {
+        let path = backup_path.get();
+        spawn_local(async move {
+            let response = invoke("select_folder", wasm_bindgen::JsValue::NULL).await;
+            if let Ok(path) = serde_wasm_bindgen::from_value::<String>(response) {
+                set_backup_path.set(path);
+            } else {
+                set_backup_path.set(path);
+            }
+        });
+    };
 
     view! {
         <div class="min-h-screen flex items-center justify-center bg-background">
@@ -336,13 +380,13 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
                                                 type="text"
                                                 placeholder="Pfad zur Datenbank"
                                                 class="flex-1 p-2 rounded bg-background text-white border border-gray-600 focus:border-primary-100 focus:outline-none"
-                                                readonly
                                                 on:input=move |ev| set_db_path.set(event_target_value(&ev))
                                                 prop:value=db_path
                                             />
                                             <button
                                                 type="button"
                                                 class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                                on:click=move |_| handle_select_db_folder()
                                             >
                                                 <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
                                             </button>
@@ -367,6 +411,7 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
                                             <button
                                                 type="button"
                                                 class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                                on:click=move |_| handle_select_backup_folder()
                                             >
                                                 <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
                                             </button>
@@ -432,13 +477,13 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
 
                                     <Register
                                         on_success=move |_| {
-                                            spawn_local(async move {
-                                                let path = db_path.get();
-                                                let args = serde_wasm_bindgen::to_value(&CompleteSetupArgs {
-                                                    custom_path: if path.is_empty() { None } else { Some(&path) },
-                                                    db_name: db_name.get().as_str(),
-                                                }).unwrap();
+                                            let args = serde_wasm_bindgen::to_value(&CompleteSetupArgs {
+                                                db_path: db_path.get().as_str(),
+                                                db_name: db_name.get().as_str(),
+                                                backup_path: backup_path.get().as_str(),
+                                            }).unwrap();
 
+                                            spawn_local(async move {
                                                 let response = invoke("complete_setup", args).await;
                                                 if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
                                                     on_complete.call(());
