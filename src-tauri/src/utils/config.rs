@@ -136,7 +136,7 @@ impl Config {
     /// If the config file cannot be written to.
     pub fn get_config_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
         let config_dir = dirs::config_dir().ok_or("Could not find config directory")?;
-        let app_dir = config_dir.join("karnes-development/password-manager");
+        let app_dir = config_dir.join("karnes-development/karncrypt");
         if !app_dir.exists() {
             std::fs::create_dir_all(&app_dir)?;
         }
@@ -177,7 +177,7 @@ impl Config {
     pub fn setup_logger(&self) -> Result<(), Box<dyn std::error::Error>> {
         let today = chrono::Local::now().format("%Y-%m-%d").to_string();
         let log_dir = Self::get_log_dir()?;
-        let log_file = log_dir.join(format!("password-manager-{}.log", today));
+        let log_file = log_dir.join(format!("karncrypt-{}.log", today));
 
         let file = OpenOptions::new()
             .create(true)

@@ -51,6 +51,7 @@ pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -
         "sparkles" => include_str!("../../assets/icons/sparkles.svg"),
         "adjustments-horizontal" => include_str!("../../assets/icons/adjustments-horizontal.svg"),
         "bookmark" => include_str!("../../assets/icons/bookmark.svg"),
+        "arrow-left" => include_str!("../../assets/icons/arrow-left.svg"),
         _ => "",
     };
 

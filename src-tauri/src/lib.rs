@@ -433,16 +433,19 @@ async fn export_passwords(
         let path = dirs::document_dir()
             .ok_or("Failed to get document directory")?
             .join("karnes-development")
-            .join("password-manager")
+            .join("karncrypt")
             .join("export");
 
         std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
 
         let bm = BackupManager::new(&pm.db);
         bm.export_csv(&path).map_err(|e| e.to_string())?;
-    }
 
-    Ok(())
+        Ok(())
+    } else {
+        info!("Export cancelled by user");
+        Err("Export wurde abgebrochen!".into())
+    }
 }
 
 #[tauri::command]
