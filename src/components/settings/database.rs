@@ -1,4 +1,7 @@
-use crate::app::invoke;
+use crate::{
+    app::invoke,
+    components::password_manager::{DialogAction, PasswordDialog},
+};
 use leptos::*;
 
 use crate::components::icons::Icon;
@@ -19,6 +22,8 @@ pub fn DatabaseSettings() -> impl IntoView {
     let (backup_interval, set_backup_interval) = create_signal(BackupInterval::Weekly);
     let (error, _set_error) = create_signal(String::new());
     let (im_export_status, set_im_export_status) = create_signal(String::new());
+    let (show_password_dialog, set_show_password_dialog) = create_signal(false);
+    let (current_action, set_current_action) = create_signal(DialogAction::Verify);
 
     let folder_icon = create_memo(move |_| "folder-open");
     let backup_icon = create_memo(move |_| "archive-box");
@@ -29,17 +34,22 @@ pub fn DatabaseSettings() -> impl IntoView {
     let export_icon = create_memo(move |_| "arrow-down-tray");
 
     let handle_export = move |_| {
-        spawn_local(async move {
-            let response = invoke("export_passwords", wasm_bindgen::JsValue::NULL).await;
-            match serde_wasm_bindgen::from_value(response) {
-                Ok(()) => {
-                    set_im_export_status.set("Export erfolgreich!".to_string());
-                }
-                Err(_) => {
-                    set_im_export_status.set("Export fehlgeschlagen!".to_string());
-                }
-            }
-        });
+        set_current_action.set(DialogAction::ExportPasswords);
+        set_show_password_dialog.set(true);
+    };
+
+    let handle_backup = move |_| {
+        set_current_action.set(DialogAction::CreateBackup);
+        set_show_password_dialog.set(true);
+    };
+
+    let handle_restore_backup = move |_| {
+        set_current_action.set(DialogAction::RestoreBackup);
+        set_show_password_dialog.set(true);
+    };
+
+    let handle_dialog_close = move |_| {
+        set_show_password_dialog.set(false);
     };
 
     view! {
@@ -174,6 +184,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                             <button
                                 type="button"
                                 class="w-full flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                on:click=handle_backup
                             >
                                 <Icon icon=backup_icon.into() class="w-5 h-5 text-primary-100" />
                                 <span>"Backup erstellen"</span>
@@ -181,6 +192,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                             <button
                                 type="button"
                                 class="w-full flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                on:click=handle_restore_backup
                             >
                                 <Icon icon=restore_icon.into() class="w-5 h-5 text-primary-100" />
                                 <span>"Backup wiederherstellen"</span>
@@ -245,6 +257,14 @@ pub fn DatabaseSettings() -> impl IntoView {
                     </div>
                 </form>
             </div>
+
+            {move || show_password_dialog.get().then(|| view! {
+                <PasswordDialog
+                    action=current_action.get()
+                    on_close=handle_dialog_close
+                    on_verify=move |_| ()
+                />
+            })}
         </div>
     }
 }

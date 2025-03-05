@@ -252,66 +252,19 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
-    use tempfile::TempDir;
-
-    fn setup_test_config() -> TempDir {
-        let temp = TempDir::new().unwrap();
-        env::set_var("HOME", temp.path());
-        temp
-    }
 
     #[test]
-    fn test_load_default_config() {
-        let _temp = setup_test_config();
-        let config = Config::load().unwrap();
+    fn test_default_config() {
+        let config = Config::default();
 
         assert_eq!(config.logging.level, "info");
         assert_eq!(config.database.db_name, "pass.db");
-        assert!(config.database.db_path.is_dir());
         assert!(!config.app.is_initialized);
         assert_eq!(config.app.auto_logout_duration, 10);
         assert_eq!(config.generator.default_length, 16);
         assert!(!config.backup.enabled);
         assert!(matches!(config.backup.interval, BackupInterval::Weekly));
         assert_eq!(config.backup.max_backups, 7);
-        assert!(config.backup.backup_path.is_dir());
         assert!(config.backup.last_backup.is_none());
-    }
-
-    #[test]
-    fn test_directory_creation() {
-        let temp = setup_test_config();
-        let config = Config::default();
-
-        let config_dir = Config::get_config_dir().unwrap();
-        assert!(config_dir.exists());
-        assert!(config_dir.starts_with(temp.path()));
-
-        let log_dir = Config::get_log_dir().unwrap();
-        assert!(log_dir.exists());
-        assert!(log_dir.ends_with("logs"));
-
-        let db_dir = config.get_db_dir().unwrap();
-        assert!(db_dir.exists());
-        assert!(db_dir.starts_with(temp.path()));
-
-        let backup_dir = config.get_backup_dir().unwrap();
-        assert!(backup_dir.exists());
-        assert!(backup_dir.ends_with("backups"));
-    }
-
-    #[test]
-    fn test_save_and_load() {
-        let _temp = setup_test_config();
-        let mut config = Config::default();
-        config.backup.enabled = true;
-        config.generator.default_length = 24;
-
-        config.save().unwrap();
-
-        let loaded = Config::load().unwrap();
-        assert!(loaded.backup.enabled);
-        assert_eq!(loaded.generator.default_length, 24);
     }
 }

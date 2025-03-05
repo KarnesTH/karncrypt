@@ -3,6 +3,7 @@ mod utils;
 
 use log::{error, info};
 pub use password_manager::PasswordManager;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::AppHandle;
@@ -117,6 +118,15 @@ async fn login(
 }
 
 #[tauri::command]
+/// Logout the current user.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the user cannot be logged out.
 async fn logout(state: State<'_, PasswordManagerState>) -> Result<(), String> {
     if let Some(pm) = &*state.0.lock().unwrap() {
         pm.logout().map_err(|e| e.to_string())?;
@@ -162,6 +172,15 @@ struct DefaultConfig {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+/// Get the default configuration.
+///
+/// # Returns
+///
+/// A Result containing the default configuration or an error.
+///
+/// # Errors
+///
+/// If the default configuration cannot be fetched.
 async fn get_default_config() -> Result<DefaultConfig, String> {
     let config = Config::load().unwrap();
 
@@ -440,6 +459,8 @@ async fn export_passwords(
     let state = state.0.lock().unwrap();
     let pm = state.as_ref().ok_or("Not logged in")?;
 
+    let config = Config::load().map_err(|e| e.to_string())?;
+
     let confirmed = app
         .dialog()
         .message(
@@ -452,17 +473,34 @@ async fn export_passwords(
             Möchtest du trotzdem fortfahren?",
         )
         .title("Sicherheitswarnung - Export")
+        .kind(MessageDialogKind::Warning)
         .buttons(MessageDialogButtons::YesNo)
         .blocking_show();
 
     if confirmed {
-        let path = dirs::document_dir()
-            .ok_or("Failed to get document directory")?
-            .join("karnes-development")
-            .join("karncrypt")
-            .join("export");
+        let path = config.backup.export_path;
 
-        std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+        if !path.exists() {
+            let confirm = app
+                .dialog()
+                .message(format!(
+                    "Der Export-Ordner existiert noch nicht.\n\n\
+                    Folgender Ordner wird benötigt:\n\
+                    {}\n\n\
+                    Ordner jetzt anlegen?",
+                    path.display()
+                ))
+                .title("Export-Ordner erstellen")
+                .kind(MessageDialogKind::Warning)
+                .buttons(MessageDialogButtons::OkCancel)
+                .blocking_show();
+
+            if confirm {
+                fs::create_dir_all(&path).map_err(|e| e.to_string())?;
+            } else {
+                return Err("Du hast die Erstellung des Export-Ordners abgebrochen.".into());
+            }
+        }
 
         let bm = BackupManager::new(&pm.db);
         bm.export_csv(&path).map_err(|e| e.to_string())?;
@@ -475,6 +513,15 @@ async fn export_passwords(
 }
 
 #[tauri::command]
+/// Import passwords from a CSV file.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the passwords cannot be imported.
 async fn import_passwords(
     app: AppHandle,
     state: State<'_, PasswordManagerState>,
@@ -541,6 +588,15 @@ async fn decrypt_password(
 }
 
 #[tauri::command]
+/// Select a folder.
+///
+/// # Returns
+///
+/// A Result containing the selected folder path or an error.
+///
+/// # Errors
+///
+/// If no folder is selected.
 async fn select_folder(app: AppHandle) -> Result<String, String> {
     let path = app.dialog().file().blocking_pick_folder();
     match path {
@@ -550,6 +606,76 @@ async fn select_folder(app: AppHandle) -> Result<String, String> {
         }
         None => Err("No path selected".to_string()),
     }
+}
+
+#[tauri::command]
+async fn create_backup(
+    app: AppHandle,
+    state: State<'_, PasswordManagerState>,
+    master_pass: String,
+) -> Result<(), String> {
+    let state = state.0.lock().unwrap();
+    let pm = state.as_ref().ok_or("Not logged in")?;
+
+    let config = Config::load().map_err(|e| e.to_string())?;
+    let config_dir = Config::get_config_dir().map_err(|e| e.to_string())?;
+    let backup_path = config.backup.backup_path;
+
+    if !backup_path.exists() {
+        let confirm = app
+            .dialog()
+            .message(format!(
+                "Der Backup-Ordner existiert noch nicht.\n\n\
+                Folgender Ordner wird benötigt:\n\
+                {}\n\n\
+                Ordner jetzt anlegen?",
+                backup_path.display()
+            ))
+            .title("Backup-Ordner erstellen")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancel)
+            .blocking_show();
+
+        if confirm {
+            fs::create_dir_all(&backup_path).map_err(|e| e.to_string())?;
+        } else {
+            return Err("Du hast die Erstellung des Backup-Ordners abgebrochen.".into());
+        }
+    }
+
+    let bm = BackupManager::new(&pm.db);
+    bm.create_backup(&backup_path, &config_dir, &master_pass)
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+async fn restore_backup(app: AppHandle, master_pass: String) -> Result<(), String> {
+    let backup_file = app
+        .dialog()
+        .file()
+        .add_filter("KarnCrypt Backup", &["pmbackup"])
+        .blocking_pick_file();
+
+    let backup_path = match backup_file {
+        Some(path) => path.as_path().unwrap().to_path_buf(),
+        None => return Err("Keine Backup-Datei ausgewählt".into()),
+    };
+
+    let config_dir = Config::get_config_dir().map_err(|e| e.to_string())?;
+
+    BackupManager::restore_backup(&backup_path, &config_dir, &master_pass)
+        .map_err(|e| e.to_string())?;
+
+    app.dialog()
+        .message("Backup erfolgreich wiederhergestellt")
+        .title("Backup wiederherstellen")
+        .kind(MessageDialogKind::Info)
+        .buttons(MessageDialogButtons::Ok)
+        .blocking_show();
+
+    app.restart();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -592,7 +718,9 @@ pub fn run() {
             decrypt_password,
             import_passwords,
             select_folder,
-            get_default_config
+            get_default_config,
+            create_backup,
+            restore_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

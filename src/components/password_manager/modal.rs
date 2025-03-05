@@ -1,6 +1,9 @@
 use crate::{
     app::invoke,
-    components::{icons::Icon, password_manager::password_dialog::PasswordDialog},
+    components::{
+        icons::Icon,
+        password_manager::password_dialog::{DialogAction, PasswordDialog},
+    },
 };
 use leptos::*;
 use serde::Serialize;
@@ -254,6 +257,7 @@ pub fn PasswordModal(
                 if show_password_dialog.get() {
                     view! {
                         <PasswordDialog
+                        action=DialogAction::Verify
                         on_verify=move |verified| {
                             if verified {
                                 let password = password.get().clone();

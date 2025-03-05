@@ -1,6 +1,10 @@
 use crate::{
     app::invoke,
-    components::{auth::Register, icons::Icon},
+    components::{
+        auth::Register,
+        icons::Icon,
+        password_manager::{DialogAction, PasswordDialog},
+    },
 };
 use leptos::*;
 use serde::{Deserialize, Serialize};
@@ -37,6 +41,8 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
     let (db_name, set_db_name) = create_signal(String::new());
     let (backup_path, set_backup_path) = create_signal(String::new());
     let (restore_flow, set_restore_flow) = create_signal(false);
+    let (show_password_dialog, set_show_password_dialog) = create_signal(false);
+    let (current_action, set_current_action) = create_signal(DialogAction::Verify);
 
     let flag_icon = create_memo(move |_| "flag");
     let database_icon = create_memo(move |_| "circle-stack");
@@ -77,6 +83,10 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
                 set_backup_path.set(path);
             }
         });
+    };
+
+    let handle_dialog_close = move |_| {
+        set_show_password_dialog.set(false);
     };
 
     view! {
@@ -277,32 +287,16 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
                                         "Zurück"
                                     </button>
 
-                                    <div class="mb-6">
-                                        <label class="block text-white text-sm font-bold mb-2">
-                                            "Backup-Datei"
-                                        </label>
-                                        <div class="flex space-x-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Pfad zur Backup-Datei"
-                                                class="flex-1 p-2 rounded bg-background text-white border border-gray-600 focus:border-primary-100 focus:outline-none"
-                                                readonly
-                                                prop:value=backup_path
-                                            />
-                                            <button
-                                                type="button"
-                                                class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
-                                            >
-                                                <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
-                                            </button>
-                                        </div>
+                                    <div class="flex w-full justify-center mb-6">
+                                        <Icon icon=backup_icon.into() class="w-16 h-16 text-gray-600" />
                                     </div>
 
                                     <button
                                         class="w-full bg-gradient-primary text-white font-bold py-2 px-4 rounded transition-all hover:opacity-90 flex items-center justify-center"
                                         disabled=move || backup_path.get().is_empty()
                                         on:click=move |_| {
-                                            // TODO: Implement restore logic
+                                            set_current_action.set(DialogAction::RestoreBackup);
+                                            set_show_password_dialog.set(true);
                                         }
                                     >
                                         <span>"Backup wiederherstellen"</span>
@@ -497,6 +491,13 @@ pub fn Init(#[prop(into)] on_complete: Callback<()>) -> impl IntoView {
                     }}
                 </div>
             </div>
+            {move || show_password_dialog.get().then(|| view! {
+                <PasswordDialog
+                    action=current_action.get()
+                    on_close=handle_dialog_close
+                    on_verify=move |_| ()
+                />
+            })}
         </div>
     }
 }

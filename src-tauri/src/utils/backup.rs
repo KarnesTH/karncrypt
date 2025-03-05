@@ -89,15 +89,8 @@ impl<'a> BackupManager<'a> {
         let compressor = BackupCompressor::new();
         let compressed = compressor.compress(&backup_files)?;
 
-        info!("Encrypt backup data");
-        let encrypted = self
-            .db
-            .encryption
-            .encrypt(&STANDARD.encode(&compressed))
-            .unwrap();
-
         let final_backup_path = backup_path.join(format!("backup_{}.pmbackup", timestamp));
-        fs::write(&final_backup_path, encrypted)?;
+        fs::write(&final_backup_path, compressed)?;
 
         fs::remove_dir_all(temp_dir)?;
 
@@ -122,42 +115,29 @@ impl<'a> BackupManager<'a> {
     ///
     /// Returns an error if the backup restoration fails
     pub fn restore_backup(
-        &self,
         backup_file: &Path,
         config_dir: &Path,
         master_password: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting backup restoration from {:?}", backup_file);
 
-        let encrypted_data = fs::read(backup_file)?;
-        let decrypted = self
-            .db
-            .encryption
-            .decrypt(&encrypted_data)
-            .map_err(|_| "Failed to decrypt backup")?;
-
-        let decoded = STANDARD
-            .decode(decrypted.as_bytes())
-            .map_err(|_| "Failed to decode backup data")?;
-
+        let backup_data = fs::read(backup_file)?;
         let compressor = BackupCompressor::new();
-        let files = compressor.decompress(&decoded)?;
+        let files = compressor.decompress(&backup_data)?;
 
-        let temp_dir = backup_file.parent().unwrap().join("restore_temp");
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir)?;
-        }
-        fs::create_dir_all(&temp_dir)?;
-
-        let has_db = files
-            .iter()
-            .any(|f| f.name == self.db.path.file_name().unwrap().to_str().unwrap());
+        let has_db = files.iter().any(|f| f.name.ends_with(".db"));
         let has_config = files.iter().any(|f| f.name == "config.toml");
         let has_salt = files.iter().any(|f| f.name == ".salt");
 
         if !has_db || !has_config || !has_salt {
             return Err("Backup is missing required files".into());
         }
+
+        let temp_dir = backup_file.parent().unwrap().join("restore_temp");
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir)?;
+        }
+        fs::create_dir_all(&temp_dir)?;
 
         for file in &files {
             fs::write(temp_dir.join(&file.name), &file.data)?;
@@ -177,10 +157,18 @@ impl<'a> BackupManager<'a> {
             fs::copy(temp_dir.join("config.toml"), config_dir.join("config.toml"))?;
             fs::copy(temp_dir.join(".salt"), config_dir.join(".salt"))?;
 
-            self.db.restore_from_dump(
-                &temp_dir.join(self.db.path.file_name().unwrap()),
-                master_password,
-            )?;
+            let salt_data = fs::read(temp_dir.join(".salt"))?;
+            let salt = salt_data[..16].try_into()?;
+
+            let db_name = files
+                .iter()
+                .find(|f| f.name.ends_with(".db"))
+                .map(|f| &f.name)
+                .ok_or("DB file not found")?;
+
+            let db = Database::new(config_dir.join(db_name), master_password, &salt)?;
+
+            db.restore_from_dump(&temp_dir.join(db_name), master_password)?;
 
             Ok(())
         })();
@@ -536,11 +524,8 @@ mod tests {
         fs::create_dir_all(&config_dir).unwrap();
 
         let new_db = Database::new(db.path.clone(), "test_password", &[0u8; 16]).unwrap();
-        let new_backup_manager = BackupManager::new(&new_db);
 
-        new_backup_manager
-            .restore_backup(&backup_path, &config_dir, "test_password")
-            .unwrap();
+        BackupManager::restore_backup(&backup_path, &config_dir, "test_password").unwrap();
 
         assert!(config_dir.join("config.toml").exists());
         assert!(config_dir.join(".salt").exists());

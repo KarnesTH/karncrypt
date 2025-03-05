@@ -2,8 +2,16 @@ use crate::{app::invoke, components::icons::Icon};
 use leptos::*;
 use serde::Serialize;
 
+#[derive(Clone)]
+pub enum DialogAction {
+    Verify,
+    CreateBackup,
+    ExportPasswords,
+    RestoreBackup,
+}
+
 #[derive(Serialize)]
-struct VerifyPasswordArgs<'a> {
+struct PasswordDialogArgs<'a> {
     #[serde(rename = "masterPass")]
     master_pass: &'a str,
 }
@@ -12,6 +20,7 @@ struct VerifyPasswordArgs<'a> {
 pub fn PasswordDialog(
     #[prop(into)] on_close: Callback<()>,
     #[prop(into)] on_verify: Callback<bool>,
+    #[prop(into)] action: DialogAction,
 ) -> impl IntoView {
     let (master_password, set_master_password) = create_signal(String::new());
     let (error, set_error) = create_signal(String::new());
@@ -21,9 +30,10 @@ pub fn PasswordDialog(
     let master_key_icon = create_memo(move |_| "shield-check");
     let check_icon = create_memo(move |_| "check");
 
-    let verify_password = move |ev: ev::SubmitEvent| {
+    let handle_password = move |ev: ev::SubmitEvent| {
         ev.prevent_default();
         let master_pass = master_password.get();
+        let action = action.clone();
 
         if master_pass.is_empty() {
             set_error.set("Bitte gib dein Master-Passwort ein".into());
@@ -31,22 +41,64 @@ pub fn PasswordDialog(
         }
 
         spawn_local(async move {
-            let args = serde_wasm_bindgen::to_value(&VerifyPasswordArgs {
+            let args = serde_wasm_bindgen::to_value(&PasswordDialogArgs {
                 master_pass: &master_pass,
             })
             .unwrap();
 
-            let response = invoke("verify_master_password", args).await;
-            match serde_wasm_bindgen::from_value::<bool>(response) {
-                Ok(true) => {
-                    set_error.set("".into());
-                    on_verify.call(true);
-                    on_close.call(());
+            match action {
+                DialogAction::Verify => {
+                    let response = invoke("verify_master_password", args).await;
+                    match serde_wasm_bindgen::from_value::<bool>(response) {
+                        Ok(true) => {
+                            set_error.set("".into());
+                            on_verify.call(true);
+                            on_close.call(());
+                        }
+                        _ => {
+                            set_error.set("Falsches Master-Passwort".into());
+                        }
+                    }
                 }
-                _ => {
-                    set_error.set("Falsches Master-Passwort".into());
+                DialogAction::CreateBackup => {
+                    let response = invoke("create_backup", args).await;
+                    if response.is_null() || response.as_bool().unwrap_or(false) {
+                        set_error.set("Backup erfolgreich erstellt!".into());
+                        on_close.call(());
+                    } else {
+                        let error_msg = response
+                            .as_string()
+                            .unwrap_or("Unbekannter Fehler".to_string());
+                        set_error.set(format!("Backup fehlgeschlagen: {}", error_msg));
+                    }
                 }
-            }
+                DialogAction::ExportPasswords => {
+                    let response = invoke("export_passwords", args).await;
+
+                    if response.is_null() || response.as_bool().unwrap_or(false) {
+                        set_error.set("Export erfolgreich".into());
+                        on_close.call(());
+                    } else {
+                        let error_msg = response
+                            .as_string()
+                            .unwrap_or("Unbekannter Fehler".to_string());
+                        set_error.set(format!("Export fehlgeschlagen: {}", error_msg));
+                    }
+                }
+                DialogAction::RestoreBackup => {
+                    let response = invoke("restore_backup", args).await;
+
+                    if response.is_null() || response.as_bool().unwrap_or(false) {
+                        set_error.set("Backup erfolgreich wiederhergestellt".into());
+                        on_close.call(());
+                    } else {
+                        let error_msg = response
+                            .as_string()
+                            .unwrap_or("Unbekannter Fehler".to_string());
+                        set_error.set(format!("Wiederherstellung fehlgeschlagen: {}", error_msg));
+                    }
+                }
+            };
         });
     };
 
@@ -71,7 +123,7 @@ pub fn PasswordDialog(
                     </button>
                 </div>
 
-                <form on:submit=verify_password class="space-y-4">
+                <form on:submit=handle_password class="space-y-4">
                     <div>
                         <label class="block text-white text-sm font-bold mb-2 flex items-center">
                             <Icon icon=key_icon.into() class="w-4 h-4 mr-2 text-primary-100" />

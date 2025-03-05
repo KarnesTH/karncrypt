@@ -1,4 +1,7 @@
-use crate::{app::invoke, components::icons::Icon};
+use crate::{
+    app::invoke,
+    components::{icons::Icon, password_manager::password_dialog::DialogAction},
+};
 use leptos::*;
 use serde::{Deserialize, Serialize};
 
@@ -157,6 +160,7 @@ pub fn TableItem(
                 if show_password_dialog.get() {
                     view! {
                         <PasswordDialog
+                        action=DialogAction::Verify
                         on_verify=move |verified| {
                             if verified {
                                 let password = item.get().password.clone();
