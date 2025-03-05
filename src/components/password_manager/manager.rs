@@ -35,16 +35,27 @@ struct DeletePasswordArgs {
 #[derive(Serialize)]
 struct GetPasswordsArgs {}
 
+#[derive(Clone, PartialEq)]
+enum SortOrder {
+    ServiceAsc,
+    ServiceDesc,
+}
+
 #[component]
 pub fn PasswordManager() -> impl IntoView {
     let (passwords, set_passwords) = create_signal(Vec::<TableItemArgs>::new());
     let (is_loading, set_is_loading) = create_signal(true);
     let (show_modal, set_show_modal) = create_signal(false);
     let (modal_mode, set_modal_mode) = create_signal::<ModalMode>(ModalMode::Add);
+    let (show_filter_dropdown, set_show_filter_dropdown) = create_signal(false);
+    let (sort_order, set_sort_order) = create_signal(SortOrder::ServiceAsc);
+    let (search_text, set_search_text) = create_signal(String::new());
 
     let plus_icon = create_memo(move |_| "plus");
     let key_icon = create_memo(move |_| "key");
     let vault_icon = create_memo(move |_| "key");
+    let search_icon = create_memo(move |_| "magnifying-glass");
+    let filter_icon = create_memo(move |_| "funnel");
 
     let head_service_icon = create_memo(move |_| "bookmark");
     let head_username_icon = create_memo(move |_| "user");
@@ -128,6 +139,28 @@ pub fn PasswordManager() -> impl IntoView {
         });
     };
 
+    let filtered_and_sorted_passwords = create_memo(move |_| {
+        let mut results = passwords
+            .get()
+            .into_iter()
+            .filter(|p| {
+                let search = search_text.get().to_lowercase();
+                if search.is_empty() {
+                    return true;
+                }
+                p.service.to_lowercase().contains(&search)
+                    || p.username.to_lowercase().contains(&search)
+            })
+            .collect::<Vec<_>>();
+
+        match sort_order.get() {
+            SortOrder::ServiceAsc => results.sort_by(|a, b| a.service.cmp(&b.service)),
+            SortOrder::ServiceDesc => results.sort_by(|a, b| b.service.cmp(&a.service)),
+        }
+
+        results
+    });
+
     view! {
         <div class="w-full h-full flex flex-col">
             <div class="flex justify-between items-center mb-4">
@@ -168,6 +201,56 @@ pub fn PasswordManager() -> impl IntoView {
                 } else {
                     view! {
                         <div class="flex-1 overflow-hidden flex flex-col bg-background-card rounded-lg">
+                            <div class="w-full mb-4 flex items-center gap-2 bg-background-card rounded-lg p-2">
+                                <div class="flex items-center flex-1 relative">
+                                    <Icon
+                                        icon=search_icon.into()
+                                        class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Suchen..."
+                                        on:input=move |ev| set_search_text.set(event_target_value(&ev))
+                                        class="w-full pl-10 pr-4 py-2 bg-background border border-gray-600 rounded-lg focus:outline-none focus:border-primary-100 text-white"
+                                    />
+                                </div>
+                                <div class="relative">
+                                    <button
+                                        class="p-2 hover:bg-background rounded-lg text-gray-400 hover:text-white transition-colors"
+                                        on:click=move |_| set_show_filter_dropdown.update(|v| *v = !*v)
+                                    >
+                                        <Icon icon=filter_icon.into() class="w-5 h-5" />
+                                    </button>
+
+                                    {move || show_filter_dropdown.get().then(|| view! {
+                                        <div class="absolute right-0 top-full mt-2 w-48 bg-background border border-gray-600 rounded-lg shadow-lg p-2 z-50 text-white">
+                                            <div class="text-sm text-gray-400 px-3 py-2 font-medium">
+                                                "Sortierung"
+                                            </div>
+                                            <button
+                                                class="w-full text-left px-3 py-2 hover:bg-background-light rounded transition-colors flex items-center gap-2"
+                                                class:text-primary-100=move || sort_order.get() == SortOrder::ServiceAsc
+                                                on:click=move |_| {
+                                                    set_sort_order.set(SortOrder::ServiceAsc);
+                                                    set_show_filter_dropdown.set(false);
+                                                }
+                                            >
+                                                "Service (A-Z)"
+                                            </button>
+                                            <button
+                                                class="w-full text-left px-3 py-2 hover:bg-background-light rounded transition-colors flex items-center gap-2"
+                                                class:text-primary-100=move || sort_order.get() == SortOrder::ServiceDesc
+                                                on:click=move |_| {
+                                                    set_sort_order.set(SortOrder::ServiceDesc);
+                                                    set_show_filter_dropdown.set(false);
+                                                }
+                                            >
+                                                "Service (Z-A)"
+                                            </button>
+                                        </div>
+                                    })}
+                                </div>
+                            </div>
                             <div class="flex-1 overflow-hidden">
                                 <table class="w-full">
                                     <thead class="bg-background">
@@ -196,7 +279,7 @@ pub fn PasswordManager() -> impl IntoView {
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-600">
-                                        {move || passwords.get().into_iter().map(|password| {
+                                        {move || filtered_and_sorted_passwords.get().into_iter().map(|password| {
                                             view! {
                                                 <TableItem
                                                     item=password
