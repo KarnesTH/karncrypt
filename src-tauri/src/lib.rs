@@ -8,7 +8,7 @@ use commands::PasswordManagerState;
 use commands::{
     add_password, complete_setup, create_backup, delete_password, export_passwords,
     generate_password, get_database_settings, get_default_config, get_default_generator_length,
-    get_passwords, import_passwords, login, logout, register, restore_backup,
+    get_passwords, import_passwords, login, logout, register, restore_backup, save_app_settings,
     save_database_settings, update_password,
 };
 
@@ -168,7 +168,8 @@ pub fn run() {
             restore_backup,
             get_database_settings,
             save_database_settings,
-            get_default_generator_length
+            get_default_generator_length,
+            save_app_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

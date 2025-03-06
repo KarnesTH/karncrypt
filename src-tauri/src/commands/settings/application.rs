@@ -24,3 +24,12 @@ pub async fn get_default_generator_length() -> Result<AppSettingsConfig, String>
         default_length: config.generator.default_length,
     })
 }
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn save_app_settings(default_length: usize) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+    config.generator.default_length = default_length;
+    config.save().map_err(|e| e.to_string())?;
+
+    Ok(())
+}

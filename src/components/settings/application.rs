@@ -1,6 +1,6 @@
 use crate::app::invoke;
-use leptos::*;
-use serde::Deserialize;
+use leptos::{ev::SubmitEvent, *};
+use serde::{Deserialize, Serialize};
 
 use crate::components::icons::Icon;
 
@@ -9,10 +9,16 @@ struct AppSettingsResponse {
     default_length: usize,
 }
 
+#[derive(Serialize)]
+pub struct AppSettingsArgs {
+    #[serde(rename = "defaultLength")]
+    default_length: usize,
+}
+
 #[component]
 pub fn ApplicationSettings() -> impl IntoView {
     let (password_length, set_password_length) = create_signal(16);
-    let (error, _set_error) = create_signal(String::new());
+    let (error, set_error) = create_signal(String::new());
 
     let lock_icon = create_memo(move |_| "lock-closed");
     let palette_icon = create_memo(move |_| "paint-brush");
@@ -25,10 +31,29 @@ pub fn ApplicationSettings() -> impl IntoView {
         }
     });
 
+    let handle_save_settings = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        let args = serde_wasm_bindgen::to_value(&AppSettingsArgs {
+            default_length: password_length.get(),
+        })
+        .unwrap();
+        spawn_local(async move {
+            let response = invoke("save_app_settings", args).await;
+            match serde_wasm_bindgen::from_value::<()>(response) {
+                Ok(_) => {
+                    set_error.set("Einstellungen gespeichert".to_string());
+                }
+                Err(_) => {
+                    set_error.set("Fehler beim Speichern der Einstellungen".to_string());
+                }
+            }
+        });
+    };
+
     view! {
         <div class="flex justify-center">
             <div class="max-w-xl w-full space-y-8">
-                <form class="space-y-8">
+                <form class="space-y-8" on:submit=handle_save_settings>
                     {move || (!error.get().is_empty()).then(||
                         view! {
                             <div class="text-primary-100 text-sm text-center">
