@@ -50,6 +50,7 @@ pub enum BackupInterval {
     Daily,
     Weekly,
     Monthly,
+    Yearly,
 }
 
 impl Default for BackupInterval {

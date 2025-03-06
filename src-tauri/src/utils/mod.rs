@@ -10,7 +10,7 @@ mod session;
 pub use auth::Auth;
 pub use backup::BackupManager;
 pub use backup_compressor::{BackupCompressor, BackupFile};
-pub use config::Config;
+pub use config::{BackupInterval, Config};
 pub use database::{Database, PasswordEntry};
 pub use encryption::Encryption;
 pub use session::TokenManager;

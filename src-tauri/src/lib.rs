@@ -597,18 +597,25 @@ async fn decrypt_password(
 /// # Errors
 ///
 /// If no folder is selected.
-async fn select_folder(app: AppHandle) -> Result<String, String> {
+async fn select_folder(app: AppHandle) -> Option<String> {
     let path = app.dialog().file().blocking_pick_folder();
-    match path {
-        Some(p) => {
-            let path = p.as_path().unwrap().to_str().unwrap().to_string();
-            Ok(path)
-        }
-        None => Err("No path selected".to_string()),
-    }
+    path.map(|p| p.as_path().unwrap().to_str().unwrap().to_string())
 }
 
 #[tauri::command]
+/// Create a backup.
+///
+/// # Arguments
+///
+/// * `master_pass` - The master password to use for the backup.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the backup cannot be created.
 async fn create_backup(
     app: AppHandle,
     state: State<'_, PasswordManagerState>,
@@ -651,6 +658,19 @@ async fn create_backup(
 }
 
 #[tauri::command]
+/// Restore a backup.
+///
+/// # Arguments
+///
+/// * `master_pass` - The master password to use for the backup.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the backup cannot be restored.
 async fn restore_backup(app: AppHandle, master_pass: String) -> Result<(), String> {
     let backup_file = app
         .dialog()
@@ -676,6 +696,70 @@ async fn restore_backup(app: AppHandle, master_pass: String) -> Result<(), Strin
         .blocking_show();
 
     app.restart();
+}
+
+#[derive(serde::Serialize)]
+struct DatabaseSettingsConfig {
+    db_path: String,
+    db_name: String,
+    auto_backup: bool,
+    backup_interval: String,
+    max_backups: usize,
+    backup_path: String,
+    export_path: String,
+}
+
+#[tauri::command]
+async fn get_database_settings() -> Result<DatabaseSettingsConfig, String> {
+    let config = Config::load().map_err(|e| e.to_string())?;
+
+    let backup_interval = match config.backup.interval {
+        utils::BackupInterval::Daily => "Täglich",
+        utils::BackupInterval::Weekly => "Wöchentlich",
+        utils::BackupInterval::Monthly => "Monatlich",
+        utils::BackupInterval::Yearly => "Jährlich",
+    };
+
+    Ok(DatabaseSettingsConfig {
+        db_name: config.database.db_name.to_string(),
+        db_path: config.database.db_path.to_string_lossy().to_string(),
+        auto_backup: config.backup.enabled,
+        backup_interval: backup_interval.to_string(),
+        max_backups: config.backup.max_backups,
+        backup_path: config.backup.backup_path.to_string_lossy().to_string(),
+        export_path: config.backup.export_path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command(rename_all = "camelCase")]
+async fn save_database_settings(
+    db_name: String,
+    db_path: String,
+    auto_backup: bool,
+    backup_interval: String,
+    max_backups: usize,
+    backup_path: String,
+    export_path: String,
+) -> Result<(), String> {
+    let mut config = Config::load().map_err(|e| e.to_string())?;
+
+    config.database.db_name = db_name;
+    config.database.db_path = PathBuf::from(db_path);
+    config.backup.enabled = auto_backup;
+    config.backup.interval = match backup_interval.as_str() {
+        "Täglich" => utils::BackupInterval::Daily,
+        "Wöchentlich" => utils::BackupInterval::Weekly,
+        "Monatlich" => utils::BackupInterval::Monthly,
+        "Jährlich" => utils::BackupInterval::Yearly,
+        _ => return Err("Ungültiges Backup-Intervall".into()),
+    };
+    config.backup.max_backups = max_backups;
+    config.backup.backup_path = PathBuf::from(backup_path);
+    config.backup.export_path = PathBuf::from(export_path);
+
+    config.save().map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -720,7 +804,9 @@ pub fn run() {
             select_folder,
             get_default_config,
             create_backup,
-            restore_backup
+            restore_backup,
+            get_database_settings,
+            save_database_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
