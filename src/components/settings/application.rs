@@ -1,17 +1,29 @@
+use crate::app::invoke;
 use leptos::*;
+use serde::Deserialize;
 
 use crate::components::icons::Icon;
+
+#[derive(Deserialize)]
+struct AppSettingsResponse {
+    default_length: usize,
+}
 
 #[component]
 pub fn ApplicationSettings() -> impl IntoView {
     let (password_length, set_password_length) = create_signal(16);
-    let (use_numbers, set_use_numbers) = create_signal(true);
-    let (use_symbols, set_use_symbols) = create_signal(true);
     let (error, _set_error) = create_signal(String::new());
 
     let lock_icon = create_memo(move |_| "lock-closed");
     let palette_icon = create_memo(move |_| "paint-brush");
     let language_icon = create_memo(move |_| "language");
+
+    spawn_local(async move {
+        let response = invoke("get_default_generator_length", wasm_bindgen::JsValue::NULL).await;
+        if let Ok(settings) = serde_wasm_bindgen::from_value::<AppSettingsResponse>(response) {
+            set_password_length.set(settings.default_length);
+        }
+    });
 
     view! {
         <div class="flex justify-center">
@@ -59,33 +71,7 @@ pub fn ApplicationSettings() -> impl IntoView {
                                 />
                                 <span class="text-white w-12 text-center">{password_length}</span>
                             </div>
-                        </div>
-
-                        <div class="space-y-3">
-                            <div class="flex items-center space-x-3">
-                                <input
-                                    type="checkbox"
-                                    id="use-numbers"
-                                    class="w-4 h-4 bg-background border-gray-600 rounded focus:ring-primary-100"
-                                    on:change=move |ev| set_use_numbers.set(event_target_checked(&ev))
-                                    prop:checked=use_numbers
-                                />
-                                <label for="use-numbers" class="text-white text-sm font-bold">
-                                    "Zahlen verwenden"
-                                </label>
-                            </div>
-                            <div class="flex items-center space-x-3">
-                                <input
-                                    type="checkbox"
-                                    id="use-symbols"
-                                    class="w-4 h-4 bg-background border-gray-600 rounded focus:ring-primary-100"
-                                    on:change=move |ev| set_use_symbols.set(event_target_checked(&ev))
-                                    prop:checked=use_symbols
-                                />
-                                <label for="use-symbols" class="text-white text-sm font-bold">
-                                    "Sonderzeichen verwenden"
-                                </label>
-                            </div>
+                            <p class="mt-1 text-sm text-gray-400">"Legt die Standardlänge neu generierter Passwörter fest"</p>
                         </div>
                     </fieldset>
 

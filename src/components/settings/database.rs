@@ -126,7 +126,7 @@ pub fn DatabaseSettings() -> impl IntoView {
         ev.prevent_default();
 
         let args = serde_wasm_bindgen::to_value(&DatabaseSettingsArgs {
-            db_path: &db_path.get().as_str(),
+            db_path: &db_path.get(),
             db_name: &db_name.get(),
             auto_backup: auto_backup.get(),
             backup_interval: match backup_interval.get() {
@@ -185,7 +185,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                 prop:value=db_name
                             />
                             <p class="mt-1 text-sm text-gray-400">
-                                "Der Name der Datenbank, in der die Passwörter gespeichert werden"
+                                "Name der Passwort-Datenbank"
                             </p>
                         </div>
 
@@ -210,7 +210,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                 </button>
                             </div>
                             <p class="mt-1 text-sm text-gray-400">
-                                "Der Pfad, in dem die Datenbank gespeichert wird"
+                                "Speicherort der Datenbank"
                             </p>
                         </div>
                     </fieldset>
@@ -244,7 +244,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                 </button>
                             </div>
                             <p class="mt-1 text-sm text-gray-400">
-                                "Der Pfad, in dem die Backups gespeichert werden"
+                                "Speicherort für Backups"
                             </p>
                         </div>
 
@@ -319,7 +319,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                             </div>
                                         </div>
                                         <p class="mt-1 text-sm text-gray-400">
-                                            "Wie häufig sollen automatische Backups erstellt werden"
+                                            "Zeitabstand zwischen automatischen Backups"
                                         </p>
                                     </div>
 
@@ -340,7 +340,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                             prop:value=move || max_backup.get().to_string()
                                         />
                                         <p class="mt-1 text-sm text-gray-400">
-                                            "Maximale Anzahl der Backups, die aufbewahrt werden sollen"
+                                            "Maximale Anzahl gespeicherter Backups"
                                         </p>
                                     </div>
                                 </div>
@@ -395,7 +395,7 @@ pub fn DatabaseSettings() -> impl IntoView {
                                 </button>
                             </div>
                             <p class="mt-1 text-sm text-gray-400">
-                                "Der Pfad, in dem die Datenbank als csv-Datei exportiert wird"
+                                "Speicherort für exportierte CSV-Dateien"
                             </p>
                         </div>
 
