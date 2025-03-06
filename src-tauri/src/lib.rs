@@ -8,8 +8,8 @@ use commands::PasswordManagerState;
 use commands::{
     add_password, complete_setup, create_backup, delete_password, export_passwords,
     generate_password, get_database_settings, get_default_config, get_default_generator_length,
-    get_passwords, import_passwords, login, logout, register, restore_backup, save_app_settings,
-    save_database_settings, update_password,
+    get_passwords, import_passwords, login, logout, open_log_folder, register, restore_backup,
+    save_app_settings, save_database_settings, update_password,
 };
 
 pub use password_manager::PasswordManager;
@@ -134,6 +134,7 @@ pub fn run() {
         .expect("error while setting up logger");
     PasswordManager::cleanup_on_startup().expect("error while cleaning up");
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -169,7 +170,8 @@ pub fn run() {
             get_database_settings,
             save_database_settings,
             get_default_generator_length,
-            save_app_settings
+            save_app_settings,
+            open_log_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

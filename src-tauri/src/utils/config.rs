@@ -159,7 +159,7 @@ impl Config {
     /// # Errors
     ///
     /// If the log directory cannot be created.
-    fn get_log_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    pub fn get_log_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
         let config_dir = Self::get_config_dir()?;
         let log_dir = config_dir.join("logs");
 
