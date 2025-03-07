@@ -57,6 +57,7 @@ pub fn DatabaseSettings() -> impl IntoView {
     let (im_export_status, set_im_export_status) = create_signal(String::new());
     let (show_password_dialog, set_show_password_dialog) = create_signal(false);
     let (current_action, set_current_action) = create_signal(DialogAction::Verify);
+    let (is_loading, set_is_loading) = create_signal(true);
 
     let folder_icon = create_memo(move |_| "folder-open");
     let backup_icon = create_memo(move |_| "archive-box");
@@ -82,6 +83,8 @@ pub fn DatabaseSettings() -> impl IntoView {
             set_export_path.set(settings.export_path);
             set_max_backup.set(settings.max_backups);
             set_backup_path.set(settings.backup_path);
+
+            set_is_loading.set(false);
         }
     });
 
@@ -142,11 +145,14 @@ pub fn DatabaseSettings() -> impl IntoView {
         .unwrap();
         spawn_local(async move {
             let response = invoke("save_database_settings", args).await;
+            set_is_loading.set(true);
             match serde_wasm_bindgen::from_value::<()>(response) {
                 Ok(_) => {
                     set_error.set("Einstellungen gespeichert".to_string());
+                    set_is_loading.set(false);
                 }
                 Err(_) => {
+                    set_is_loading.set(false);
                     set_error.set("Fehler beim Speichern der Einstellungen".to_string());
                 }
             }
@@ -156,297 +162,309 @@ pub fn DatabaseSettings() -> impl IntoView {
     view! {
         <div class="flex justify-center">
             <div class="max-w-xl w-full space-y-8">
-                <form class="space-y-8" on:submit=handle_save_settings>
-                    {move || (!error.get().is_empty()).then(||
+                {move || {
+                    if is_loading.get() {
                         view! {
-                            <div class="text-primary-100 text-sm text-center">
-                                {error.get()}
+                            <div class="flex justify-center items-center h-64">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-100"></div>
                             </div>
-                        }
-                    )}
-
-                    <fieldset class="space-y-4">
-                        <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
-                            <div class="flex items-center space-x-2">
-                                <Icon icon=database_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Datenbank-Einstellungen"</span>
-                            </div>
-                        </h3>
-
-                        <div>
-                            <label class="block text-white text-sm font-bold mb-2">
-                                "Datenbankname"
-                            </label>
-                            <input
-                                type="text"
-                                class="w-full shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
-                                placeholder="Name der Datenbank"
-                                on:input=move |ev| set_db_name.set(event_target_value(&ev))
-                                prop:value=db_name
-                            />
-                            <p class="mt-1 text-sm text-gray-400">
-                                "Name der Passwort-Datenbank"
-                            </p>
-                        </div>
-
-                        <div>
-                            <label class="block text-white text-sm font-bold mb-2">
-                                "Datenbank-Pfad"
-                            </label>
-                            <div class="flex space-x-2">
-                                <input
-                                    type="text"
-                                    class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
-                                    placeholder="Pfad zur Datenbank"
-                                    on:input=move |ev| set_db_path.set(event_target_value(&ev))
-                                    prop:value=db_path
-                                />
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
-                                    on:click=handle_select_database_folder
-                                >
-                                    <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
-                                </button>
-                            </div>
-                            <p class="mt-1 text-sm text-gray-400">
-                                "Speicherort der Datenbank"
-                            </p>
-                        </div>
-                    </fieldset>
-
-                    <fieldset class="space-y-4">
-                        <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
-                            <div class="flex items-center space-x-2">
-                                <Icon icon=backup_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Backup-Einstellungen"</span>
-                            </div>
-                        </h3>
-
-                        <div>
-                            <label class="block text-white text-sm font-bold mb-2">
-                                "Backup-Pfad"
-                            </label>
-                            <div class="flex space-x-2">
-                                <input
-                                    type="text"
-                                    class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
-                                    placeholder="Pfad zum Backup"
-                                    on:input=move |ev| set_backup_path.set(event_target_value(&ev))
-                                    prop:value=backup_path
-                                />
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
-                                    on:click=handle_select_backup_folder
-                                >
-                                    <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
-                                </button>
-                            </div>
-                            <p class="mt-1 text-sm text-gray-400">
-                                "Speicherort für Backups"
-                            </p>
-                        </div>
-
-                        <div class="flex items-center space-x-3">
-                            <input
-                                type="checkbox"
-                                id="auto-backup"
-                                class="w-4 h-4 bg-background border-gray-600 rounded focus:ring-primary-100"
-                                on:change=move |ev| set_auto_backup.set(event_target_checked(&ev))
-                                prop:checked=auto_backup
-                            />
-                            <label for="auto-backup" class="text-white text-sm font-bold">
-                                "Automatische Backups aktivieren"
-                            </label>
-                        </div>
-                        <p class="text-sm text-gray-400">
-                            "Aktiviere automatische Backups, um deine Daten regelmäßig zu sichern"
-                        </p>
-
-                        {move || auto_backup.get().then(||
-                            view! {
-                                <div class="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label class="block text-white text-sm font-bold mb-2">
-                                            "Backup-Intervall"
-                                        </label>
-                                        <div class="relative">
-                                            <select
-                                                class="w-full p-2 pr-8 rounded bg-background text-white border border-gray-600 focus:border-primary-100 focus:outline-none
-                                                    appearance-none cursor-pointer
-                                                    [&>option]:bg-background
-                                                    [&>option]:text-white
-                                                    [&>option]:border-gray-600
-                                                    [&>option]:hover:bg-primary-400/10"
-                                                on:change=move |ev| {
-                                                    match event_target_value(&ev).as_str() {
-                                                        "daily" => set_backup_interval.set(BackupInterval::Daily),
-                                                        "weekly" => set_backup_interval.set(BackupInterval::Weekly),
-                                                        "monthly" => set_backup_interval.set(BackupInterval::Monthly),
-                                                        "yearly" => set_backup_interval.set(BackupInterval::Yearly),
-                                                        _ => ()
-                                                    }
-                                                }
-                                            >
-                                                <option
-                                                    value="daily"
-                                                    selected=move || backup_interval.get() == BackupInterval::Daily
-                                                >
-                                                    "Täglich"
-                                                </option>
-                                                <option
-                                                    value="weekly"
-                                                    selected=move || backup_interval.get() == BackupInterval::Weekly
-                                                >
-                                                    "Wöchentlich"
-                                                </option>
-                                                <option
-                                                    value="monthly"
-                                                    selected=move || backup_interval.get() == BackupInterval::Monthly
-                                                >
-                                                    "Monatlich"
-                                                </option>
-                                                <option
-                                                    value="yearly"
-                                                    selected=move || backup_interval.get() == BackupInterval::Yearly
-                                                >
-                                                    "Jährlich"
-                                                </option>
-                                            </select>
-                                            <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400">
-                                                <Icon icon=chevron_down_icon.into() class="w-5 h-5" />
-                                            </div>
+                        }.into_view()
+                    } else {
+                        view! {
+                            <form class="space-y-8" on:submit=handle_save_settings>
+                                {move || (!error.get().is_empty()).then(||
+                                    view! {
+                                        <div class="text-primary-100 text-sm text-center">
+                                            {error.get()}
                                         </div>
-                                        <p class="mt-1 text-sm text-gray-400">
-                                            "Zeitabstand zwischen automatischen Backups"
-                                        </p>
-                                    </div>
+                                    }
+                                )}
+
+                                <fieldset class="space-y-4">
+                                    <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+                                        <div class="flex items-center space-x-2">
+                                            <Icon icon=database_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Datenbank-Einstellungen"</span>
+                                        </div>
+                                    </h3>
 
                                     <div>
                                         <label class="block text-white text-sm font-bold mb-2">
-                                            "Maximale Anzahl Backups"
+                                            "Datenbankname"
                                         </label>
                                         <input
-                                            type="number"
-                                            min="1"
-                                            max="100"
+                                            type="text"
                                             class="w-full shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
-                                            on:input=move |ev| {
-                                                if let Ok(value) = event_target_value(&ev).parse::<usize>() {
-                                                    set_max_backup.set(value);
-                                                }
-                                            }
-                                            prop:value=move || max_backup.get().to_string()
+                                            placeholder="Name der Datenbank"
+                                            on:input=move |ev| set_db_name.set(event_target_value(&ev))
+                                            prop:value=db_name
                                         />
                                         <p class="mt-1 text-sm text-gray-400">
-                                            "Maximale Anzahl gespeicherter Backups"
+                                            "Name der Passwort-Datenbank"
                                         </p>
                                     </div>
-                                </div>
-                            }
-                        )}
 
-                        <div class="grid grid-cols-2 gap-4 pt-2">
-                            <button
-                                type="button"
-                                class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
-                                on:click=handle_backup
-                            >
-                                <Icon icon=backup_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Backup erstellen"</span>
-                            </button>
-                            <button
-                                type="button"
-                                class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
-                                on:click=handle_restore_backup
-                            >
-                                <Icon icon=restore_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Backup wiederherstellen"</span>
-                            </button>
-                        </div>
-                    </fieldset>
+                                    <div>
+                                        <label class="block text-white text-sm font-bold mb-2">
+                                            "Datenbank-Pfad"
+                                        </label>
+                                        <div class="flex space-x-2">
+                                            <input
+                                                type="text"
+                                                class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                                                placeholder="Pfad zur Datenbank"
+                                                on:input=move |ev| set_db_path.set(event_target_value(&ev))
+                                                prop:value=db_path
+                                            />
+                                            <button
+                                                type="button"
+                                                class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                                on:click=handle_select_database_folder
+                                            >
+                                                <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
+                                            </button>
+                                        </div>
+                                        <p class="mt-1 text-sm text-gray-400">
+                                            "Speicherort der Datenbank"
+                                        </p>
+                                    </div>
+                                </fieldset>
 
-                    <fieldset class="space-y-4">
-                        <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
-                            <div class="flex items-center space-x-2">
-                                <Icon icon=database_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Import/Export"</span>
-                            </div>
-                        </h3>
+                                <fieldset class="space-y-4">
+                                    <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+                                        <div class="flex items-center space-x-2">
+                                            <Icon icon=backup_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Backup-Einstellungen"</span>
+                                        </div>
+                                    </h3>
 
-                        <div>
-                            <label class="block text-white text-sm font-bold mb-2">
-                                "Export-Pfad"
-                            </label>
-                            <div class="flex space-x-2">
-                                <input
-                                    type="text"
-                                    class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
-                                    placeholder="Pfad zum Export"
-                                    on:input=move |ev| set_export_path.set(event_target_value(&ev))
-                                    prop:value=export_path
-                                />
-                                <button
-                                    type="button"
-                                    class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
-                                >
-                                    <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
-                                </button>
-                            </div>
-                            <p class="mt-1 text-sm text-gray-400">
-                                "Speicherort für exportierte CSV-Dateien"
-                            </p>
-                        </div>
+                                    <div>
+                                        <label class="block text-white text-sm font-bold mb-2">
+                                            "Backup-Pfad"
+                                        </label>
+                                        <div class="flex space-x-2">
+                                            <input
+                                                type="text"
+                                                class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                                                placeholder="Pfad zum Backup"
+                                                on:input=move |ev| set_backup_path.set(event_target_value(&ev))
+                                                prop:value=backup_path
+                                            />
+                                            <button
+                                                type="button"
+                                                class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                                on:click=handle_select_backup_folder
+                                            >
+                                                <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
+                                            </button>
+                                        </div>
+                                        <p class="mt-1 text-sm text-gray-400">
+                                            "Speicherort für Backups"
+                                        </p>
+                                    </div>
 
-                        <div class="grid grid-cols-2 gap-4">
-                            <button
-                                type="button"
-                                class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
-                                on:click=move |_| {
-                                    spawn_local(async move {
-                                        let response = invoke("import_passwords", wasm_bindgen::JsValue::NULL).await;
-                                        match serde_wasm_bindgen::from_value(response) {
-                                            Ok(()) => {
-                                                set_im_export_status.set("Import erfolgreich!".to_string());
-                                            }
-                                            Err(_) => {
-                                                set_im_export_status.set("Import fehlgeschlagen!".to_string());
-                                            }
+                                    <div class="flex items-center space-x-3">
+                                        <input
+                                            type="checkbox"
+                                            id="auto-backup"
+                                            class="w-4 h-4 bg-background border-gray-600 rounded focus:ring-primary-100"
+                                            on:change=move |ev| set_auto_backup.set(event_target_checked(&ev))
+                                            prop:checked=auto_backup
+                                        />
+                                        <label for="auto-backup" class="text-white text-sm font-bold">
+                                            "Automatische Backups aktivieren"
+                                        </label>
+                                    </div>
+                                    <p class="text-sm text-gray-400">
+                                        "Aktiviere automatische Backups, um deine Daten regelmäßig zu sichern"
+                                    </p>
+
+                                    {move || auto_backup.get().then(||
+                                        view! {
+                                            <div class="grid grid-cols-2 gap-6">
+                                                <div>
+                                                    <label class="block text-white text-sm font-bold mb-2">
+                                                        "Backup-Intervall"
+                                                    </label>
+                                                    <div class="relative">
+                                                        <select
+                                                            class="w-full p-2 pr-8 rounded bg-background text-white border border-gray-600 focus:border-primary-100 focus:outline-none
+                                                                appearance-none cursor-pointer
+                                                                [&>option]:bg-background
+                                                                [&>option]:text-white
+                                                                [&>option]:border-gray-600
+                                                                [&>option]:hover:bg-primary-400/10"
+                                                            on:change=move |ev| {
+                                                                match event_target_value(&ev).as_str() {
+                                                                    "daily" => set_backup_interval.set(BackupInterval::Daily),
+                                                                    "weekly" => set_backup_interval.set(BackupInterval::Weekly),
+                                                                    "monthly" => set_backup_interval.set(BackupInterval::Monthly),
+                                                                    "yearly" => set_backup_interval.set(BackupInterval::Yearly),
+                                                                    _ => ()
+                                                                }
+                                                            }
+                                                        >
+                                                            <option
+                                                                value="daily"
+                                                                selected=move || backup_interval.get() == BackupInterval::Daily
+                                                            >
+                                                                "Täglich"
+                                                            </option>
+                                                            <option
+                                                                value="weekly"
+                                                                selected=move || backup_interval.get() == BackupInterval::Weekly
+                                                            >
+                                                                "Wöchentlich"
+                                                            </option>
+                                                            <option
+                                                                value="monthly"
+                                                                selected=move || backup_interval.get() == BackupInterval::Monthly
+                                                            >
+                                                                "Monatlich"
+                                                            </option>
+                                                            <option
+                                                                value="yearly"
+                                                                selected=move || backup_interval.get() == BackupInterval::Yearly
+                                                            >
+                                                                "Jährlich"
+                                                            </option>
+                                                        </select>
+                                                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-gray-400">
+                                                            <Icon icon=chevron_down_icon.into() class="w-5 h-5" />
+                                                        </div>
+                                                    </div>
+                                                    <p class="mt-1 text-sm text-gray-400">
+                                                        "Zeitabstand zwischen automatischen Backups"
+                                                    </p>
+                                                </div>
+
+                                                <div>
+                                                    <label class="block text-white text-sm font-bold mb-2">
+                                                        "Maximale Anzahl Backups"
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="100"
+                                                        class="w-full shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                                                        on:input=move |ev| {
+                                                            if let Ok(value) = event_target_value(&ev).parse::<usize>() {
+                                                                set_max_backup.set(value);
+                                                            }
+                                                        }
+                                                        prop:value=move || max_backup.get().to_string()
+                                                    />
+                                                    <p class="mt-1 text-sm text-gray-400">
+                                                        "Maximale Anzahl gespeicherter Backups"
+                                                    </p>
+                                                </div>
+                                            </div>
                                         }
-                                    });
-                                }
-                            >
-                                <Icon icon=import_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"CSV importieren"</span>
-                            </button>
-                            <button
-                                type="button"
-                                class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
-                                on:click=handle_export
-                            >
-                                <Icon icon=export_icon.into() class="w-5 h-5 text-primary-100" />
-                                <span>"Als CSV exportieren"</span>
-                            </button>
-                        </div>
-                        {move || (!im_export_status.get().is_empty()).then(||
-                            view! {
-                                <div class="text-primary-100 text-sm text-center">
-                                    {im_export_status.get()}
-                                </div>
-                            }
-                        )}
-                    </fieldset>
+                                    )}
 
-                    <div class="flex justify-end pt-4 border-t border-gray-600">
-                        <button
-                            type="submit"
-                            class="bg-gradient-primary text-white font-bold py-2 px-8 rounded focus:outline-none hover:opacity-90 transition-opacity"
-                        >
-                            "Speichern"
-                        </button>
-                    </div>
-                </form>
+                                    <div class="grid grid-cols-2 gap-4 pt-2">
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                            on:click=handle_backup
+                                        >
+                                            <Icon icon=backup_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Backup erstellen"</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                            on:click=handle_restore_backup
+                                        >
+                                            <Icon icon=restore_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Backup wiederherstellen"</span>
+                                        </button>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <h3 class="text-lg font-semibold bg-gradient-primary bg-clip-text text-transparent mb-4">
+                                        <div class="flex items-center space-x-2">
+                                            <Icon icon=database_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Import/Export"</span>
+                                        </div>
+                                    </h3>
+
+                                    <div>
+                                        <label class="block text-white text-sm font-bold mb-2">
+                                            "Export-Pfad"
+                                        </label>
+                                        <div class="flex space-x-2">
+                                            <input
+                                                type="text"
+                                                class="flex-1 shadow appearance-none border border-gray-600 rounded py-2 px-3 bg-background text-white leading-tight focus:outline-none focus:border-primary-100"
+                                                placeholder="Pfad zum Export"
+                                                on:input=move |ev| set_export_path.set(event_target_value(&ev))
+                                                prop:value=export_path
+                                            />
+                                            <button
+                                                type="button"
+                                                class="px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                            >
+                                                <Icon icon=folder_icon.into() class="w-5 h-5 text-primary-100" />
+                                            </button>
+                                        </div>
+                                        <p class="mt-1 text-sm text-gray-400">
+                                            "Speicherort für exportierte CSV-Dateien"
+                                        </p>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                            on:click=move |_| {
+                                                spawn_local(async move {
+                                                    let response = invoke("import_passwords", wasm_bindgen::JsValue::NULL).await;
+                                                    match serde_wasm_bindgen::from_value(response) {
+                                                        Ok(()) => {
+                                                            set_im_export_status.set("Import erfolgreich!".to_string());
+                                                        }
+                                                        Err(_) => {
+                                                            set_im_export_status.set("Import fehlgeschlagen!".to_string());
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        >
+                                            <Icon icon=import_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"CSV importieren"</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="flex items-center justify-center space-x-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white py-2 px-4 rounded focus:outline-none transition-all duration-200"
+                                            on:click=handle_export
+                                        >
+                                            <Icon icon=export_icon.into() class="w-5 h-5 text-primary-100" />
+                                            <span>"Als CSV exportieren"</span>
+                                        </button>
+                                    </div>
+                                    {move || (!im_export_status.get().is_empty()).then(||
+                                        view! {
+                                            <div class="text-primary-100 text-sm text-center">
+                                                {im_export_status.get()}
+                                            </div>
+                                        }
+                                    )}
+                                </fieldset>
+
+                                <div class="flex justify-end pt-4 border-t border-gray-600">
+                                    <button
+                                        type="submit"
+                                        class="bg-gradient-primary text-white font-bold py-2 px-8 rounded focus:outline-none hover:opacity-90 transition-opacity"
+                                    >
+                                        "Speichern"
+                                    </button>
+                                </div>
+                            </form>
+                        }.into_view()
+                    }
+                }}
             </div>
 
             {move || show_password_dialog.get().then(|| view! {

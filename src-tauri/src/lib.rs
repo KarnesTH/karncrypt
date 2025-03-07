@@ -7,9 +7,9 @@ use std::sync::Mutex;
 use commands::PasswordManagerState;
 use commands::{
     add_password, complete_setup, create_backup, delete_password, export_passwords,
-    generate_password, get_database_settings, get_default_config, get_default_generator_length,
-    get_passwords, import_passwords, login, logout, open_log_folder, register, restore_backup,
-    save_app_settings, save_database_settings, update_password,
+    generate_password, get_auto_logout_time, get_database_settings, get_default_config,
+    get_default_generator_length, get_passwords, import_passwords, login, logout, open_log_folder,
+    register, restore_backup, save_app_settings, save_database_settings, update_password,
 };
 
 pub use password_manager::PasswordManager;
@@ -171,7 +171,8 @@ pub fn run() {
             save_database_settings,
             get_default_generator_length,
             save_app_settings,
-            open_log_folder
+            open_log_folder,
+            get_auto_logout_time
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
