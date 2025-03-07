@@ -63,6 +63,34 @@ pub fn App() -> impl IntoView {
         }
     });
 
+    create_effect(move |_| {
+        if is_authenticated.get() {
+            let check_interval = 30_000;
+
+            let closure = Closure::wrap(Box::new(move || {
+                spawn_local(async move {
+                    let response = invoke("check_users_session", JsValue::NULL).await;
+                    if let Ok(is_valid) = serde_wasm_bindgen::from_value::<bool>(response) {
+                        if !is_valid {
+                            let window = web_sys::window().unwrap();
+                            window.location().reload().unwrap();
+                        }
+                    }
+                });
+            }) as Box<dyn FnMut()>);
+
+            let window = web_sys::window().unwrap();
+            window
+                .set_interval_with_callback_and_timeout_and_arguments_0(
+                    closure.as_ref().unchecked_ref(),
+                    check_interval,
+                )
+                .unwrap();
+
+            closure.forget();
+        }
+    });
+
     let on_auth_success = move |_| {
         set_is_authenticated.set(true);
     };

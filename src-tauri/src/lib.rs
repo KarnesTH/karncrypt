@@ -9,7 +9,8 @@ use commands::{
     add_password, complete_setup, create_backup, delete_password, export_passwords,
     generate_password, get_auto_logout_time, get_database_settings, get_default_config,
     get_default_generator_length, get_passwords, import_passwords, login, logout, open_log_folder,
-    register, restore_backup, save_app_settings, save_database_settings, update_password,
+    register, restore_backup, save_app_settings, save_database_settings, save_security_settings,
+    update_master_password, update_password,
 };
 
 pub use password_manager::PasswordManager;
@@ -123,6 +124,24 @@ async fn select_folder(app: AppHandle) -> Option<String> {
     path.map(|p| p.as_path().unwrap().to_str().unwrap().to_string())
 }
 
+#[tauri::command]
+/// Checks if the users session is still active.
+///
+/// # Returns
+///
+/// A Result containing a boolean indicating if the session is still active or an error.
+///
+/// # Errors
+///
+/// If the session cannot be checked.
+async fn check_users_session(state: State<'_, PasswordManagerState>) -> Result<bool, String> {
+    let state = state.0.lock().unwrap();
+    match state.as_ref() {
+        Some(pm) => Ok(pm.is_logged_in()),
+        None => Ok(false),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Run the Tauri application.
 ///
@@ -172,7 +191,10 @@ pub fn run() {
             get_default_generator_length,
             save_app_settings,
             open_log_folder,
-            get_auto_logout_time
+            get_auto_logout_time,
+            update_master_password,
+            check_users_session,
+            save_security_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

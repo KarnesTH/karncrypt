@@ -2,7 +2,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use crate::{Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
+use crate::{utils::User, Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
 
 pub struct PasswordManager {
     pub db: Database,
@@ -300,6 +300,63 @@ impl PasswordManager {
             .collect())
     }
 
+    /// Updates the Users master password.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_password` - The current master password.
+    /// * `new_password` - The new master password.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a unit or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the current password is incorrect.
+    pub fn update_master_password(
+        &mut self,
+        current_password: &str,
+        new_password: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let session = self.token_manager.get_session()?;
+        let user_id = session.get_user_id();
+        let current_user = self.db.read_by_id::<User>(user_id)?;
+
+        let current_key = self.db.encryption.get_key(current_password)?;
+        let new_key = self.db.encryption.get_key(new_password)?;
+
+        self.db.connection.execute_batch(&format!(
+            "PRAGMA key = '{}';
+            PRAGMA rekey = '{}';",
+            current_key, new_key
+        ))?;
+
+        let config_dir = Config::get_config_dir()?;
+        let salt_file = config_dir.join(".salt");
+        let salt: [u8; 16] = std::fs::read(&salt_file)?[..16].try_into()?;
+
+        self.db.encryption = Encryption::new(new_password, &salt);
+        self.token_manager.encryption = self.db.encryption.clone();
+
+        let encryptd = self.db.encryption.encrypt(new_password).unwrap();
+        let encoded = STANDARD.encode(&encryptd);
+
+        let model = User {
+            id: Some(user_id),
+            username: current_user.username,
+            master_key: encoded.into_bytes(),
+            created_at: current_user.created_at,
+            last_login: current_user.last_login,
+        };
+
+        self.db.update(&model)?;
+
+        self.token_manager.clear_session()?;
+
+        Ok(())
+    }
+
     /// Generate a new password.
     ///
     /// # Arguments
@@ -405,10 +462,14 @@ impl PasswordManager {
         &self,
         master_pass: &str,
     ) -> Result<bool, Box<dyn std::error::Error>> {
-        let test_key = self.db.encryption.get_key(master_pass)?;
-        let current_key = self.db.encryption.get_key(master_pass)?;
+        let session = self.token_manager.get_session()?;
+        let user_id = session.get_user_id();
+        let user = self.db.read_by_id::<User>(user_id)?;
 
-        Ok(test_key == current_key)
+        let decoded = STANDARD.decode(&user.master_key)?;
+        let decrypted = self.db.encryption.decrypt(&decoded).unwrap();
+
+        Ok(decrypted == master_pass)
     }
 
     /// Decrypt a password.

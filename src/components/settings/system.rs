@@ -16,11 +16,10 @@ pub fn SystemSettings() -> impl IntoView {
         set_is_loading.set(true);
         spawn_local(async move {
             let response = invoke("open_log_folder", wasm_bindgen::JsValue::NULL).await;
-            if let Ok(_) = serde_wasm_bindgen::from_value::<()>(response) {
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
                 set_is_loading.set(false);
             } else {
-                set_is_loading.set(false);
-                set_error.set("Failed to open log folder.".to_string());
+                set_error.set("Fehler beim Öffnen des Ordners".to_string());
             }
         });
     };

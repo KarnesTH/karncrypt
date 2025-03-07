@@ -1,10 +1,24 @@
 use crate::{app::invoke, components::icons::Icon};
-use leptos::*;
+use leptos::{ev::SubmitEvent, *};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 struct PasswordGeneratorArgs {
     length: usize,
+}
+
+#[derive(Serialize)]
+struct SaveSecuritySettingsArgs {
+    #[serde(rename = "autoLogoutDuration")]
+    auto_logout_duration: u64,
+}
+
+#[derive(Serialize)]
+struct UpdateMasterPasswordArgs {
+    #[serde(rename = "currentPassword")]
+    current_password: String,
+    #[serde(rename = "newPassword")]
+    new_password: String,
 }
 
 #[derive(Deserialize)]
@@ -19,7 +33,7 @@ pub fn SecuritySettings() -> impl IntoView {
     let (confirm_password, set_confirm_password) = create_signal(String::new());
     let (show_passwords, set_show_passwords) = create_signal(false);
     let (show_master_password, set_show_master_password) = create_signal(false);
-    let (error, _set_error) = create_signal(String::new());
+    let (error, set_error) = create_signal(String::new());
     let (auto_logout, set_auto_logout) = create_signal(0);
     let (is_loading, set_is_loading) = create_signal(false);
     let (password_length, set_password_length) = create_signal(0);
@@ -77,6 +91,46 @@ pub fn SecuritySettings() -> impl IntoView {
         });
     };
 
+    let handle_update_master_password = move |_| {
+        set_is_loading.set(true);
+        if new_password.get() != confirm_password.get() {
+            set_error.set("Die neuen Passwörter stimmen nicht überein".to_string());
+            set_is_loading.set(false);
+            return;
+        }
+        spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&UpdateMasterPasswordArgs {
+                current_password: current_password.get(),
+                new_password: new_password.get(),
+            })
+            .unwrap();
+            let response = invoke("update_master_password", args).await;
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
+                set_error.set("Das Master-Passwort wurde erfolgreich geändert".to_string());
+                set_is_loading.set(false);
+                let window = web_sys::window().unwrap();
+                window.location().reload().unwrap();
+            }
+        });
+    };
+
+    let handle_save_security_settings = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        set_is_loading.set(true);
+        spawn_local(async move {
+            let args = serde_wasm_bindgen::to_value(&SaveSecuritySettingsArgs {
+                auto_logout_duration: auto_logout.get(),
+            })
+            .unwrap();
+            let response = invoke("save_security_settings", args).await;
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
+                set_error
+                    .set("Die Sicherheitseinstellungen wurden erfolgreich gespeichert".to_string());
+            }
+            set_is_loading.set(false);
+        });
+    };
+
     view! {
         <div class="flex justify-center">
             <div class="max-w-xl w-full space-y-8">
@@ -89,7 +143,7 @@ pub fn SecuritySettings() -> impl IntoView {
                         }.into_view()
                     } else {
                         view! {
-                            <form class="space-y-8">
+                            <form class="space-y-8" on:submit=handle_save_security_settings>
                                 {move || (!error.get().is_empty()).then(||
                                     view! {
                                         <div class="text-primary-100 text-sm">
@@ -202,7 +256,7 @@ pub fn SecuritySettings() -> impl IntoView {
                                             <button
                                                 type="button"
                                                 class="bg-gradient-primary text-white font-bold py-2 px-8 rounded focus:outline-none hover:opacity-90 transition-opacity"
-                                                on:click=move |_| {}
+                                                on:click=handle_update_master_password
                                             >
                                                 "Master-Passwort ändern"
                                             </button>
