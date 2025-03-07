@@ -56,6 +56,7 @@ pub fn PasswordManager() -> impl IntoView {
     let vault_icon = create_memo(move |_| "key");
     let search_icon = create_memo(move |_| "magnifying-glass");
     let filter_icon = create_memo(move |_| "funnel");
+    let refresh_icon = create_memo(move |_| "arrow-path");
 
     let head_service_icon = create_memo(move |_| "bookmark");
     let head_username_icon = create_memo(move |_| "user");
@@ -161,6 +162,18 @@ pub fn PasswordManager() -> impl IntoView {
         results
     });
 
+    let handle_refresh = move |_| {
+        set_is_loading.set(true);
+        spawn_local(async move {
+            let response = invoke("get_passwords", wasm_bindgen::JsValue::NULL).await;
+            if let Ok(passwords) = serde_wasm_bindgen::from_value::<Vec<TableItemArgs>>(response) {
+                set_passwords.set(passwords);
+            }
+
+            set_is_loading.set(false);
+        });
+    };
+
     view! {
         <div class="w-full h-full flex flex-col">
             <div class="flex justify-between items-center mb-4">
@@ -168,13 +181,26 @@ pub fn PasswordManager() -> impl IntoView {
                     <Icon icon=vault_icon.into() class="w-8 h-8 mr-3 text-primary-100" />
                     "Gespeicherte Passwörter"
                 </h2>
-                <button
-                    class="bg-gradient-primary text-white px-4 py-2 rounded flex items-center hover:opacity-90 transition-opacity"
-                    on:click=handle_add
-                >
-                    <Icon icon=plus_icon.into() class="w-5 h-5 mr-2" />
-                    "Passwort hinzufügen"
-                </button>
+                <div class="flex gap-6">
+                    <button
+                        class="group relative flex items-center text-gray-400 hover:text-white transition-colors"
+                        on:click=handle_add
+                    >
+                        <Icon icon=plus_icon.into() class="w-5 h-5" />
+                        <span class="ml-2 whitespace-nowrap max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 text-primary-100">
+                            "Hinzufügen"
+                        </span>
+                    </button>
+                    <button
+                        class="group relative flex items-center text-gray-400 hover:text-white transition-colors"
+                        on:click=handle_refresh
+                    >
+                        <Icon icon=refresh_icon.into() class="w-5 h-5" />
+                        <span class="ml-2 whitespace-nowrap max-w-0 overflow-hidden group-hover:max-w-[100px] transition-all duration-300 text-primary-100">
+                            "Aktualisieren"
+                        </span>
+                    </button>
+                </div>
             </div>
 
             {move || {
