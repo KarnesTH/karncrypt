@@ -2,11 +2,12 @@ mod commands;
 mod password_manager;
 mod utils;
 
+use log::error;
 use std::sync::Mutex;
 
 use commands::PasswordManagerState;
 use commands::{
-    add_password, complete_setup, create_backup, delete_password, export_passwords,
+    add_password, check_update, complete_setup, create_backup, delete_password, export_passwords,
     generate_password, get_auto_logout_time, get_database_settings, get_default_config,
     get_default_generator_length, get_passwords, import_passwords, login, logout, open_log_folder,
     register, restore_backup, save_app_settings, save_database_settings, save_security_settings,
@@ -153,11 +154,21 @@ pub fn run() {
         .expect("error while setting up logger");
     PasswordManager::cleanup_on_startup().expect("error while cleaning up");
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .manage(PasswordManagerState(Mutex::new(None)))
+        .setup(|app| {
+            let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = check_update(handle).await {
+                    error!("Update check failed: {}", e);
+                }
+            });
+            Ok(())
+        })
         .on_window_event(|handle, event| match &event {
             tauri::WindowEvent::Destroyed => {
                 if let Some(pm) = &*handle.state::<PasswordManagerState>().0.lock().unwrap() {
@@ -194,7 +205,8 @@ pub fn run() {
             get_auto_logout_time,
             update_master_password,
             check_users_session,
-            save_security_settings
+            save_security_settings,
+            check_update
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

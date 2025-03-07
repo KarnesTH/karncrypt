@@ -24,6 +24,18 @@ pub fn SystemSettings() -> impl IntoView {
         });
     };
 
+    let handle_check_update = move |_| {
+        set_is_loading.set(true);
+        spawn_local(async move {
+            let response = invoke("check_update", wasm_bindgen::JsValue::NULL).await;
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
+                set_is_loading.set(false);
+            } else {
+                set_error.set("Fehler beim Überprüfen auf Updates".to_string());
+            }
+        });
+    };
+
     view! {
 
         <div class="flex justify-center">
@@ -81,6 +93,7 @@ pub fn SystemSettings() -> impl IntoView {
                                         <button
                                             type="button"
                                             class="flex items-center space-x-2 px-4 py-2 bg-background border border-primary-100 hover:bg-primary-400/10 text-white rounded focus:outline-none transition-all duration-200"
+                                            on:click=handle_check_update
                                         >
                                             <Icon icon=arrow_path_icon.into() class="w-5 h-5 text-primary-100" />
                                             <span>"Nach Updates suchen"</span>
