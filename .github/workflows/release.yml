@@ -12,16 +12,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        platform: [ubuntu-20.04, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-20.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev libgdk-pixbuf2.0-dev
+          sudo apt-get install -y libgtk-3-dev webkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev libgdk-pixbuf2.0-dev
+
+      - name: Install OpenSSL (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          vcpkg integrate install
+          vcpkg install openssl:x64-windows-static
+          echo "OPENSSL_DIR=C:/vcpkg/installed/x64-windows-static" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
