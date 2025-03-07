@@ -23,10 +23,10 @@ The application is in active development. The core functionality is complete and
 - ✅ Secure local storage
 - ✅ Master password protection
 - ✅ Backup & Export/Import system
+- ✅ Settings menu
 
 ## 📝 Planned Features
 
-- ⚙️ Settings menu
 - 🏥 Password health check
 - 🔄 Auto-updates
 - 🎨 Theme support
