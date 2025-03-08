@@ -41,7 +41,7 @@ The current user interface is only available in German.
 ## 📥 Installation
 
 ### Windows
-Download the latest version from the [Releases](https://github.com/KarnesTH/karncrypt/releases) page.
+Download the latest version from the [Releases](https://github.com/KarnesTH/karncrypt/releases/tag/v0.1.0) page.
 
 **Important Note**: It is recommended to use the `karncrypt_x64-setup.exe` installer instead of the .msi version.
 
