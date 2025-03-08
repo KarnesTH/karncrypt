@@ -96,5 +96,5 @@ jobs:
         with:
           draft: true
           files: |
-            D:\a\karncrypt\karncrypt\target\release\bundle\msi\karncrypt_0.1.0_x64_de-DE.msi
-            D:\a\karncrypt\karncrypt\target\release\bundle\nsis\karncrypt_0.1.0_x64-setup.exe
+            D:/a/karncrypt/karncrypt/target/release/bundle/msi/karncrypt_0.1.0_x64_de-DE.msi
+            D:/a/karncrypt/karncrypt/target/release/bundle/nsis/karncrypt_0.1.0_x64-setup.exe
