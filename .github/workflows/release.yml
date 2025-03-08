@@ -32,7 +32,9 @@ jobs:
             libgdk-pixbuf2.0-dev \
             libatk1.0-dev \
             libsoup2.4-dev \
-            libwebkit2gtk-4.0-dev
+            libwebkit2gtk-4.0-dev \
+            build-essential \
+            libglib2.0-0
           echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig" >> $GITHUB_ENV
 
       - name: Install OpenSSL (Windows)
@@ -69,6 +71,11 @@ jobs:
           trunk build
           cargo tauri build
 
+      - name: List Bundle Directory
+        shell: bash
+        run: |
+          ls -R src-tauri/target/release/bundle/
+
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -77,4 +84,6 @@ jobs:
         with:
           draft: true
           files: |
-            src-tauri/target/release/bundle/**/*
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
