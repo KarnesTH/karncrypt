@@ -84,4 +84,8 @@ jobs:
         with:
           draft: true
           files: |
-            ${{ github.workspace }}/target/release/bundle/**/*.{exe,msi,deb,rpm,AppImage,sig}
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/appimage/*.AppImage
