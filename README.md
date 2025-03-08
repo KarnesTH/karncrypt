@@ -26,11 +26,11 @@ The application is in active development. The core functionality is complete and
 - ✅ Master password protection
 - ✅ Backup & Export/Import system
 - ✅ Settings menu
+- ✅ Auto-updates
 
 ## 📝 Planned Features
 
 - 🏥 Password health check
-- 🔄 Auto-updates
 - 🎨 Theme support
 - 🌍 Multi-language support (currently German only)
 

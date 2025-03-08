@@ -1,4 +1,4 @@
-use leptos::*;
+use leptos::{ev::SubmitEvent, *};
 
 use crate::{app::invoke, components::icons::Icon};
 
@@ -11,6 +11,15 @@ pub fn SystemSettings() -> impl IntoView {
     let rocket_icon = create_memo(move |_| "rocket-launch");
     let arrow_path_icon = create_memo(move |_| "arrow-path");
     let document_icon = create_memo(move |_| "document-text");
+
+    spawn_local(async move {
+        let response = invoke("is_autostart_enabled", wasm_bindgen::JsValue::NULL).await;
+        if let Ok(value) = serde_wasm_bindgen::from_value::<bool>(response) {
+            set_auto_start.set(value);
+        } else {
+            set_error.set("Fehler beim Laden der Einstellungen".to_string());
+        }
+    });
 
     let handle_open_log_folder = move |_| {
         set_is_loading.set(true);
@@ -36,6 +45,19 @@ pub fn SystemSettings() -> impl IntoView {
         });
     };
 
+    let handle_save = move |ev: SubmitEvent| {
+        ev.prevent_default();
+        set_is_loading.set(true);
+        spawn_local(async move {
+            let response = invoke("toggle_autostart", auto_start.get().into()).await;
+            if serde_wasm_bindgen::from_value::<()>(response).is_ok() {
+                set_is_loading.set(false);
+            } else {
+                set_error.set("Fehler beim Speichern der Einstellungen".to_string());
+            }
+        });
+    };
+
     view! {
 
         <div class="flex justify-center">
@@ -49,7 +71,7 @@ pub fn SystemSettings() -> impl IntoView {
                         }.into_view()
                     } else {
                         view! {
-                            <form class="space-y-8">
+                            <form class="space-y-8" on:submit=handle_save>
                                 {move || (!error.get().is_empty()).then(||
                                     view! {
                                         <div class="text-primary-100 text-sm text-center">
@@ -74,7 +96,7 @@ pub fn SystemSettings() -> impl IntoView {
                                             prop:checked=auto_start
                                         />
                                         <label for="auto-start" class="text-white text-sm font-bold">
-                                            "Automatisch mit Windows starten"
+                                            "Automatisch beim Systemstart starten"
                                         </label>
                                     </div>
                                 </fieldset>

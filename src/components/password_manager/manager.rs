@@ -175,7 +175,7 @@ pub fn PasswordManager() -> impl IntoView {
     };
 
     view! {
-        <div class="w-full h-full flex flex-col">
+        <div class="w-full flex flex-col mb-4">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold mb-0 bg-gradient-primary bg-clip-text text-transparent flex items-center">
                     <Icon icon=vault_icon.into() class="w-8 h-8 mr-3 text-primary-100" />
@@ -226,8 +226,8 @@ pub fn PasswordManager() -> impl IntoView {
                     }.into_view()
                 } else {
                     view! {
-                        <div class="flex-1 overflow-hidden flex flex-col bg-background-card rounded-lg">
-                            <div class="w-full mb-4 flex items-center gap-2 bg-background-card rounded-lg p-2">
+                        <div class="flex-1 flex flex-col bg-background-card rounded-lg">
+                            <div class="w-full flex items-center gap-2 bg-background-card rounded-lg p-2">
                                 <div class="flex items-center flex-1 relative">
                                     <Icon
                                         icon=search_icon.into()
@@ -277,7 +277,8 @@ pub fn PasswordManager() -> impl IntoView {
                                     })}
                                 </div>
                             </div>
-                            <div class="flex-1 overflow-hidden">
+
+                            <div class="w-full overflow-y-auto h-[calc(100vh-200px)]">
                                 <table class="w-full">
                                     <thead class="bg-background">
                                         <tr class="border-b border-gray-600">

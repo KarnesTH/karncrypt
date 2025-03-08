@@ -1,5 +1,6 @@
 use log::info;
 use tauri::AppHandle;
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_updater::UpdaterExt;
 
@@ -56,4 +57,52 @@ pub async fn check_update(app: AppHandle) -> tauri_plugin_updater::Result<()> {
     }
 
     Ok(())
+}
+
+#[tauri::command]
+/// Toggle the autostart setting.
+///
+/// # Arguments
+///
+/// * `enable` - A boolean indicating if autostart should be enabled.
+///
+/// # Returns
+///
+/// A Result containing the completion status or an error.
+///
+/// # Errors
+///
+/// If the autostart setting cannot be toggled.
+pub async fn toggle_autostart(app: AppHandle, enable: bool) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        if enable {
+            app.autolaunch().enable().map_err(|e| e.to_string())?;
+        } else {
+            app.autolaunch().disable().map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+/// Check if autostart is enabled.
+///
+/// # Returns
+///
+/// A Result containing a boolean indicating if autostart is enabled or an error.
+///
+/// # Errors
+///
+/// If the autostart setting cannot be checked.
+pub async fn is_autostart_enabled(app: AppHandle) -> Result<bool, String> {
+    #[cfg(desktop)]
+    {
+        app.autolaunch().is_enabled().map_err(|e| e.to_string())
+    }
+    #[cfg(not(desktop))]
+    {
+        Ok(false)
+    }
 }
