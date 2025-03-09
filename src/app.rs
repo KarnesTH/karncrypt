@@ -174,7 +174,7 @@ pub fn App() -> impl IntoView {
                                                 view! {
                                                     <div
                                                         _ref=info_dropdown_ref
-                                                        class="absolute right-0 mt-2 w-48 py-2 bg-background-card rounded-lg shadow-xl"
+                                                        class="absolute right-0 mt-2 w-48 py-2 bg-background-card rounded-lg shadow-xl z-50"
                                                         on:click=move |ev| {
                                                             ev.stop_propagation();
                                                         }
@@ -249,7 +249,7 @@ pub fn App() -> impl IntoView {
                         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                             {move || match current_tab.get() {
                                 DashboardTab::Passwords => view! {
-                                    <div class="bg-background-card shadow-lg rounded-lg p-6">
+                                    <div class="bg-background-card shadow-lg rounded-lg p-6 h-[calc(100vh-150px)]">
                                         <PasswordManager />
                                     </div>
                                 }.into_view(),
