@@ -172,7 +172,7 @@ pub fn run() {
 
             #[cfg(not(debug_assertions))]
             {
-                let window = app.get_window("main").unwrap();
+                let window = app.get_webview_window("main").unwrap();
                 window.eval("document.addEventListener('contextmenu', event => event.preventDefault());").unwrap();
             }
 
