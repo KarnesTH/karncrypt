@@ -256,16 +256,35 @@ mod tests {
 
     #[test]
     fn test_default_config() {
-        let config = Config::default();
+        match dirs::config_dir() {
+            Some(config_dir) => {
+                let config = Config::default();
 
-        assert_eq!(config.logging.level, "info");
-        assert_eq!(config.database.db_name, "pass.db");
-        assert!(!config.app.is_initialized);
-        assert_eq!(config.app.auto_logout_duration, 10);
-        assert_eq!(config.generator.default_length, 16);
-        assert!(!config.backup.enabled);
-        assert!(matches!(config.backup.interval, BackupInterval::Weekly));
-        assert_eq!(config.backup.max_backups, 7);
-        assert!(config.backup.last_backup.is_none());
+                assert_eq!(config.logging.level, "info");
+                assert_eq!(config.database.db_name, "pass.db");
+                assert!(!config.app.is_initialized);
+                assert_eq!(config.app.auto_logout_duration, 10);
+                assert_eq!(config.generator.default_length, 16);
+                assert!(!config.backup.enabled);
+                assert!(matches!(config.backup.interval, BackupInterval::Weekly));
+                assert_eq!(config.backup.max_backups, 7);
+                assert!(config.backup.last_backup.is_none());
+                assert_eq!(
+                    config.database.db_path,
+                    config_dir.join("karnes-development/karncrypt")
+                );
+                assert_eq!(
+                    config.backup.backup_path,
+                    config_dir.join("karnes-development/karncrypt/backups")
+                );
+                assert_eq!(
+                    config.backup.export_path,
+                    dirs::document_dir()
+                        .unwrap()
+                        .join("karnes-development/karncrypt/exports")
+                );
+            }
+            None => panic!("Could not find config directory"),
+        }
     }
 }
