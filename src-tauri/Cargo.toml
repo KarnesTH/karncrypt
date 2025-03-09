@@ -1,6 +1,6 @@
 [package]
 name = "karncrypt"
-version = "0.1.0"
+version = "0.2.0"
 description = "Secure, cross-platform password manager with encrypted local storage and password generation capabilities"
 authors = ["KarnesTH", "Patrick Hähnel"]
 edition = "2021"
