@@ -114,10 +114,16 @@ impl TokenManager {
         &self,
         master_pass: &str,
         user_id: i32,
+        duration: Option<u64>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         info!("Creating new session for user {}", user_id);
-        let config = Config::load()?;
-        let duration = config.app.auto_logout_duration * 60;
+        let duration = match duration {
+            Some(d) => d * 60,
+            None => {
+                let config = Config::load()?;
+                config.app.auto_logout_duration * 60
+            }
+        };
         let master_key = self.encryption.get_key(master_pass)?.into_bytes();
 
         let token = SessionToken::new(master_key, user_id, duration);
@@ -233,7 +239,7 @@ mod tests {
     fn test_token_manager_workflow() {
         let (_temp, manager) = setup_test_manager();
 
-        assert!(manager.create_session("test_pass", 1).is_ok());
+        assert!(manager.create_session("test_pass", 1, Some(10)).is_ok());
         assert!(manager.has_valid_session());
 
         let session = manager.get_session().unwrap();
@@ -250,7 +256,7 @@ mod tests {
         assert!(!manager.has_valid_session());
         assert!(manager.get_session().is_err());
 
-        assert!(manager.create_session("test_pass", 1).is_ok());
+        assert!(manager.create_session("test_pass", 1, Some(10)).is_ok());
         let token = SessionToken::new(vec![1, 2, 3], 1, 0);
         let token_str = serde_json::to_string(&token).unwrap();
         let encrypted = manager.encryption.encrypt(&token_str).unwrap();
@@ -264,7 +270,7 @@ mod tests {
     fn test_session_persistence() {
         let (_temp, manager) = setup_test_manager();
 
-        manager.create_session("test_pass", 1).unwrap();
+        manager.create_session("test_pass", 1, Some(10)).unwrap();
 
         assert!(manager.token_path.exists());
 

@@ -73,7 +73,8 @@ impl PasswordManager {
         let auth = Auth::new(&self.db);
         let user_id = auth.login(username, master_pass)?;
 
-        self.token_manager.create_session(master_pass, user_id)?;
+        self.token_manager
+            .create_session(master_pass, user_id, None)?;
 
         Ok(())
     }
