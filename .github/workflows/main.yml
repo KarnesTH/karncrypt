@@ -10,8 +10,19 @@ jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
+    env:
+      XDG_CONFIG_HOME: /home/runner/.config
+      XDG_DATA_HOME: /home/runner/.local/share
+      XDG_CACHE_HOME: /home/runner/.cache
     steps:
       - uses: actions/checkout@v4
+
+      - name: Setup test environment
+        run: |
+          mkdir -p $XDG_CONFIG_HOME
+          mkdir -p $XDG_DATA_HOME
+          mkdir -p $XDG_CACHE_HOME
+          mkdir -p $HOME/Documents
 
       - name: Install dependencies
         run: |
