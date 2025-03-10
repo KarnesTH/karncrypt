@@ -55,6 +55,7 @@ jobs:
 
       - name: Set Version
         if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
