@@ -81,6 +81,7 @@ jobs:
 
       - name: Create Update JSON
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
+        shell: bash
         run: |
           echo '{
             "version": "v'${APP_VERSION}'",
@@ -124,4 +125,4 @@ jobs:
           files: |
             D:/a/karncrypt/karncrypt/target/release/bundle/msi/karncrypt_${{ env.APP_VERSION }}_x64_de-DE.msi
             D:/a/karncrypt/karncrypt/target/release/bundle/nsis/karncrypt_${{ env.APP_VERSION }}_x64-setup.exe
-            update.json
+            D:/a/karncrypt/karncrypt/update.json
