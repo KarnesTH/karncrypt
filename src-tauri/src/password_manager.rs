@@ -2,7 +2,10 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use ring::rand::{SecureRandom, SystemRandom};
 
-use crate::{utils::User, Auth, Config, Database, Encryption, PasswordEntry, TokenManager};
+use crate::{
+    utils::{PasswordHealth, User},
+    Auth, Config, Database, Encryption, PasswordEntry, TokenManager,
+};
 
 pub struct PasswordManager {
     pub db: Database,
@@ -490,6 +493,28 @@ impl PasswordManager {
         let decoded = STANDARD.decode(password.as_bytes()).unwrap();
         let decrypted = self.db.encryption.decrypt(&decoded).unwrap();
         Ok(decrypted)
+    }
+
+    /// Check the health of a password.
+    ///
+    /// # Arguments
+    ///
+    /// * `password` - The password to check.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing the password health or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the password health cannot be checked.
+    pub fn check_password_health(
+        &self,
+        password: &str,
+    ) -> Result<PasswordHealth, Box<dyn std::error::Error>> {
+        let mut health = PasswordHealth::new(password);
+        health.analyze()?;
+        Ok(health)
     }
 }
 

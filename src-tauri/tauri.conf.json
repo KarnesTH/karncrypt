@@ -53,7 +53,7 @@
       "active": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY0QjY1QUU0RDhEQTU3NjgKUldSb1Y5clk1RnEyOUcxQUdvdDdDQkZMamF4ZEhqZ2tNK3Y0YjRRYWo4bnBvSEM3R3lLK292VksK",
       "endpoints": [
-        "https://github.com/KarnesTH/karncrypt/releases/latest/download/latest.json"
+        "https://github.com/KarnesTH/karncrypt/releases/latest/download/update.json"
       ],
       "dialog": true,
       "windows": {
