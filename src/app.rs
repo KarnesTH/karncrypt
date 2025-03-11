@@ -3,6 +3,7 @@ use wasm_bindgen::prelude::*;
 use web_sys::Node;
 
 use crate::components::icons::Icon;
+use crate::components::password_health::Dashboard;
 use crate::components::password_manager::PasswordManager;
 use crate::components::settings::SettingsPanel;
 
@@ -19,6 +20,7 @@ extern "C" {
 
 #[derive(Clone, Copy, PartialEq)]
 enum DashboardTab {
+    Dashboard,
     Passwords,
     Generator,
 }
@@ -27,7 +29,7 @@ enum DashboardTab {
 pub fn App() -> impl IntoView {
     let (is_initialized, set_is_initialized) = create_signal(false);
     let (is_authenticated, set_is_authenticated) = create_signal(false);
-    let (current_tab, set_current_tab) = create_signal(DashboardTab::Passwords);
+    let (current_tab, set_current_tab) = create_signal(DashboardTab::Dashboard);
     let (show_about, set_show_about) = create_signal(false);
     let (show_guide, set_show_guide) = create_signal(false);
     let (show_license, set_show_license) = create_signal(false);
@@ -43,6 +45,7 @@ pub fn App() -> impl IntoView {
     let license_icon = create_memo(move |_| "document-text");
     let passwords_icon = create_memo(move |_| "key");
     let generator_icon = create_memo(move |_| "sparkles");
+    let dashboard_icon = create_memo(move |_| "chart-pie");
 
     window_event_listener(ev::click, move |ev| {
         let target = ev.target();
@@ -122,6 +125,20 @@ pub fn App() -> impl IntoView {
                                 <div class="flex justify-between h-16">
                                     <div class="flex">
                                         <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
+                                            <button
+                                                class=move || format!("inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {}",
+                                                    if current_tab.get() == DashboardTab::Dashboard {
+                                                        "border-primary-100 text-white"
+                                                    } else {
+                                                        "border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-600"
+                                                    }
+                                                )
+                                                on:click=move |_| set_current_tab.set(DashboardTab::Dashboard)
+                                            >
+                                                <Icon icon=dashboard_icon.into() class="w-5 h-5 mr-2" />
+                                                "Übersicht"
+                                            </button>
+
                                             <button
                                                 class=move || format!("inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium {}",
                                                     if current_tab.get() == DashboardTab::Passwords {
@@ -248,6 +265,11 @@ pub fn App() -> impl IntoView {
                         </nav>
                         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                             {move || match current_tab.get() {
+                                DashboardTab::Dashboard => view! {
+                                    <div class="bg-background-card shadow-lg rounded-lg p-6 h-[calc(100vh-150px)]">
+                                        <Dashboard />
+                                    </div>
+                                }.into_view(),
                                 DashboardTab::Passwords => view! {
                                     <div class="bg-background-card shadow-lg rounded-lg p-6 h-[calc(100vh-150px)]">
                                         <PasswordManager />
