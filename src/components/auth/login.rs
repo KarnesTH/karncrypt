@@ -47,13 +47,10 @@ pub fn Login(#[prop(into)] on_success: Callback<()>) -> impl IntoView {
 
             let response = invoke("login", args).await;
 
-            match serde_wasm_bindgen::from_value::<()>(response) {
-                Ok(_) => {
-                    on_success.call(());
-                }
-                Err(_) => {
-                    set_error.set("Login fehlgeschlagen".to_string());
-                }
+            if serde_wasm_bindgen::from_value::<()>(response.clone()).is_ok() {
+                on_success.call(());
+            } else {
+                set_error.set("Anmeldung fehlgeschlagen".to_string());
             }
         });
     };

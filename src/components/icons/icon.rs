@@ -53,6 +53,8 @@ pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -
         "bookmark" => include_str!("../../assets/icons/bookmark.svg"),
         "arrow-left" => include_str!("../../assets/icons/arrow-left.svg"),
         "chart-pie" => include_str!("../../assets/icons/chart-pie.svg"),
+        "chart-bar" => include_str!("../../assets/icons/chart-bar.svg"),
+        "exclamation-triangle" => include_str!("../../assets/icons/exclamation-triangle.svg"),
         _ => "",
     };
 

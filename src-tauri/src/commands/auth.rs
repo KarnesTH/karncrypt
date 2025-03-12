@@ -85,19 +85,20 @@ pub async fn login(
 ) -> Result<(), String> {
     info!("Login attempt for user: {}", username);
 
-    let mut pm = PasswordManager::new(&master_pass).map_err(|e| {
-        error!("Failed to create PasswordManager: {}", e);
-        e.to_string()
-    })?;
-
-    match pm.login(&username, &master_pass) {
-        Ok(_) => {
-            log::info!("Login successful");
-            *state.0.lock().unwrap() = Some(pm);
-            Ok(())
-        }
+    match PasswordManager::new(&master_pass) {
+        Ok(mut pm) => match pm.login(&username, &master_pass) {
+            Ok(_) => {
+                info!("Successfully logged in user: {}", username);
+                *state.0.lock().unwrap() = Some(pm);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to login user {}: {}", username, e);
+                Err(e.to_string())
+            }
+        },
         Err(e) => {
-            log::error!("Login failed: {}", e);
+            error!("Failed to create PasswordManager during login: {}", e);
             Err(e.to_string())
         }
     }
