@@ -6,7 +6,7 @@ use crate::{
     },
 };
 use leptos::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::TableItemArgs;
 
@@ -27,12 +27,18 @@ struct DecryptPasswordArgs<'a> {
     encrypted_password: &'a str,
 }
 
+#[derive(Deserialize)]
+struct GeneratorLengthResponse {
+    default_length: usize,
+}
+
 #[component]
 pub fn PasswordModal(
     #[prop(into)] mode: ModalMode,
     #[prop(into)] on_save: Callback<TableItemArgs>,
     #[prop(into)] on_close: Callback<()>,
 ) -> impl IntoView {
+    let (length, set_length) = create_signal(16);
     let (service, set_service) = create_signal(String::new());
     let (username, set_username) = create_signal(String::new());
     let (password, set_password) = create_signal(String::new());
@@ -63,6 +69,42 @@ pub fn PasswordModal(
 
     let mode = create_memo(move |_| mode.clone());
 
+    let modal_icon = create_memo(move |_| {
+        if matches!(mode.get(), ModalMode::Add) {
+            add_icon.into()
+        } else {
+            edit_icon.into()
+        }
+    });
+
+    let input_type = move || {
+        if show_password.get() {
+            "text"
+        } else {
+            "password"
+        }
+    };
+
+    let modal_title = create_memo(move |_| match mode.get() {
+        ModalMode::Add => "Passwort hinzufügen",
+        ModalMode::Edit(_) => "Passwort bearbeiten",
+    });
+
+    let password_value = move || {
+        if matches!(mode.get(), ModalMode::Edit(_)) && password_verified.get() {
+            decrypted_password.get()
+        } else {
+            password.get()
+        }
+    };
+
+    spawn_local(async move {
+        let response = invoke("get_default_generator_length", wasm_bindgen::JsValue::NULL).await;
+        if let Ok(generator) = serde_wasm_bindgen::from_value::<GeneratorLengthResponse>(response) {
+            set_length.set(generator.default_length);
+        }
+    });
+
     if let ModalMode::Edit(ref item) = mode.get() {
         set_service.set(item.service.clone());
         set_username.set(item.username.clone());
@@ -85,24 +127,17 @@ pub fn PasswordModal(
                     <h2 class="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent flex items-center">
                         <div class="flex items-center">
                             <Icon
-                                icon={if matches!(mode.get(), ModalMode::Add) {
-                                    add_icon.into()
-                                } else {
-                                    edit_icon.into()
-                                }}
+                                icon=modal_icon.get()
                                 class="w-8 h-8 mr-2 text-primary-100"
                             />
-                            {move || match mode.get() {
-                                ModalMode::Add => "Passwort hinzufügen",
-                                ModalMode::Edit(_) => "Passwort bearbeiten",
-                            }}
+                            {modal_title.get()}
                         </div>
                     </h2>
                     <button
                         class="text-gray-400 hover:text-white"
                         on:click=move |_| on_close.call(())
                     >
-                        <Icon icon=create_memo(move |_| "x-mark").into() class="w-5 h-5" />
+                        <Icon icon=cancel_icon.into() class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -141,14 +176,8 @@ pub fn PasswordModal(
                             </label>
                             <div class="relative">
                                 <input
-                                    type=move || if show_password.get() { "text" } else { "password" }
-                                    value=move || {
-                                        if matches!(mode.get(), ModalMode::Edit(_)) && password_verified.get() {
-                                            decrypted_password
-                                        } else {
-                                            password
-                                        }
-                                    }
+                                    type=input_type
+                                    value=password_value
                                     class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100 pr-20"
                                     on:input=move |ev| handle_password_change(event_target_value(&ev))
                                 />
@@ -175,7 +204,7 @@ pub fn PasswordModal(
                             on:click=move |_| {
                                 spawn_local(async move {
                                     let args = serde_wasm_bindgen::to_value(&GeneratePasswordArgs {
-                                        length: 16
+                                        length: length.get(),
                                     }).unwrap();
 
                                     let response = invoke("generate_password", args).await;
@@ -209,7 +238,7 @@ pub fn PasswordModal(
                                 "Notizen"
                             </label>
                             <textarea
-                                value=notes
+                                prop:value=notes
                                 class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100 resize-none h-24"
                                 on:input=move |ev| set_notes.set(event_target_value(&ev))
                             />

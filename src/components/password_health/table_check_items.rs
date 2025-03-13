@@ -67,7 +67,7 @@ pub fn TableCheckItems(items: TableCheckItemArgs) -> impl IntoView {
         <tr class="hover:bg-background">
             <td class="p-4">
                 <div class="flex flex-col">
-                    <span>{move || item.get().service}</span>
+                    <span class="text-primary-100">{move || item.get().service}</span>
                     <span class="text-sm text-gray-400">{move || item.get().username}</span>
                 </div>
             </td>
@@ -89,7 +89,7 @@ pub fn TableCheckItems(items: TableCheckItemArgs) -> impl IntoView {
                             class={move || format!("w-2 h-2 rounded-full {} mr-2",
                                 strength_color(&item.get().strength))}
                         />
-                        <span>{move || item.get().strength}</span>
+                        <span class="text-primary-100">{move || item.get().strength}</span>
                     </div>
                     <div class="text-sm text-gray-400">
                         {move || item.get().issues.iter().map(|issue| {

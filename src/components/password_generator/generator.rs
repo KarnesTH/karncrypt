@@ -42,8 +42,8 @@ pub fn PasswordGenerator() -> impl IntoView {
         let response = invoke("get_default_generator_length", wasm_bindgen::JsValue::NULL).await;
         if let Ok(generator) = serde_wasm_bindgen::from_value::<GeneratorLengthResponse>(response) {
             set_length.set(generator.default_length);
-            set_is_loading.set(false);
         }
+        set_is_loading.set(false);
     });
 
     view! {

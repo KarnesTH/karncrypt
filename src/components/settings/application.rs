@@ -3,6 +3,7 @@ use leptos::{ev::SubmitEvent, *};
 use serde::{Deserialize, Serialize};
 
 use crate::components::icons::Icon;
+use crate::components::utils::LoadingSpinner;
 
 #[derive(Deserialize)]
 struct AppSettingsResponse {
@@ -63,9 +64,7 @@ pub fn ApplicationSettings() -> impl IntoView {
                 {move || {
                     if is_loading.get() {
                         view! {
-                            <div class="flex justify-center items-center h-64">
-                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-100"></div>
-                            </div>
+                            <LoadingSpinner />
                         }.into_view()
                     } else {
                         view! {

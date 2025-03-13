@@ -6,3 +6,4 @@ pub mod password_health;
 pub mod password_manager;
 pub mod settings;
 pub mod setup;
+pub mod utils;

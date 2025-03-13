@@ -55,6 +55,7 @@ pub fn Icon(icon: Signal<&'static str>, #[prop(optional)] class: &'static str) -
         "chart-pie" => include_str!("../../assets/icons/chart-pie.svg"),
         "chart-bar" => include_str!("../../assets/icons/chart-bar.svg"),
         "exclamation-triangle" => include_str!("../../assets/icons/exclamation-triangle.svg"),
+        "light-bulb" => include_str!("../../assets/icons/light-bulb.svg"),
         _ => "",
     };
 
