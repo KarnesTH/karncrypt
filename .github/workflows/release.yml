@@ -12,13 +12,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, windows-latest]
+        include:
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: windows-latest
+            args: ""
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -42,16 +51,12 @@ jobs:
           echo "VCPKGRS_DYNAMIC=1" >> $env:GITHUB_ENV
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
+          targets: wasm32-unknown-unknown
 
       - name: Install Trunk
         run: cargo install --locked trunk
-
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0.0"
 
       - name: Set Version
         if: startsWith(github.ref, 'refs/tags/')
@@ -59,25 +64,6 @@ jobs:
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Build Release (Windows)
-        if: matrix.platform == 'windows-latest'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          OPENSSL_DIR: C:\vcpkg\installed\x64-windows-static
-          OPENSSL_STATIC: 1
-          VCPKGRS_DYNAMIC: 1
-        run: cargo tauri build
-
-      - name: Build Release (Linux)
-        if: matrix.platform == 'ubuntu-latest'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-        run: cargo tauri build
 
       - name: Create Update JSON
         if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
@@ -103,26 +89,19 @@ jobs:
             }
           }' > update.json
 
-      - name: Upload Linux Artifacts
-        if: matrix.platform == 'ubuntu-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '' }}
+          OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
+          VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
         with:
-          draft: true
+          tagName: v__VERSION__
+          releaseName: "Release v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: true
+          args: ${{ matrix.args }}
           files: |
-            /home/runner/work/karncrypt/karncrypt/target/release/bundle/deb/karncrypt_${{ env.APP_VERSION }}_amd64.deb
-            /home/runner/work/karncrypt/karncrypt/target/release/bundle/rpm/karncrypt-${{ env.APP_VERSION }}-1.x86_64.rpm
-            /home/runner/work/karncrypt/karncrypt/target/release/bundle/appimage/karncrypt_${{ env.APP_VERSION }}_amd64.AppImage
-
-      - name: Upload Windows Artifacts
-        if: matrix.platform == 'windows-latest' && startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          draft: true
-          files: |
-            D:/a/karncrypt/karncrypt/target/release/bundle/msi/karncrypt_${{ env.APP_VERSION }}_x64_de-DE.msi
-            D:/a/karncrypt/karncrypt/target/release/bundle/nsis/karncrypt_${{ env.APP_VERSION }}_x64-setup.exe
-            D:/a/karncrypt/karncrypt/update.json
+            update.json
