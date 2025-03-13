@@ -43,44 +43,31 @@ jobs:
             libappindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libgdk3.0-cil-dev \
             libsqlcipher-dev \
-            libsqlite3-dev \
-            openssl \
-            libssl-dev
-          echo "SQLITE_CFLAGS=-fPIC" >> $GITHUB_ENV
-          echo "OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
-          echo "OPENSSL_INCLUDE_DIR=/usr/include/openssl" >> $GITHUB_ENV
+            libsqlite3-dev
+          echo "SQLITE3_NO_BUNDLED=1" >> $GITHUB_ENV
+          echo "SQLITE3_STATIC=0" >> $GITHUB_ENV
 
       - name: Install Windows dependencies
         if: matrix.platform == 'windows-latest'
         shell: bash
         run: |
           vcpkg integrate install
-          vcpkg install openssl:x64-windows-static
-          vcpkg install sqlite3[core]:x64-windows-static
-          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $GITHUB_ENV
-          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
-          echo "VCPKGRS_DYNAMIC=1" >> $GITHUB_ENV
-          echo "SQLITE3_LIB_DIR=C:\vcpkg\installed\x64-windows-static\lib" >> $GITHUB_ENV
-          echo "SQLITE3_INCLUDE_DIR=C:\vcpkg\installed\x64-windows-static\include" >> $GITHUB_ENV
+          vcpkg install sqlcipher:x64-windows-static
+          echo "SQLITE3_STATIC=1" >> $GITHUB_ENV
           echo "LIBSQLITE3_SYS_USE_PKG_CONFIG=0" >> $GITHUB_ENV
+          echo "SQLITE3_LIB_DIR=C:\vcpkg\installed\x64-windows-static\lib" >> $GITHUB_ENV
 
       - name: Install macOS dependencies
         if: matrix.platform == 'macos-latest'
         run: |
           brew update
-          brew install openssl@3
-          brew install sqlite3 sqlcipher
-
+          brew install sqlcipher
+          echo "SQLITE3_NO_BUNDLED=1" >> $GITHUB_ENV
           if [[ "${{ matrix.args }}" == *"x86_64"* ]]; then
             echo "MACOSX_DEPLOYMENT_TARGET=10.13" >> $GITHUB_ENV
-            echo "OPENSSL_LIB_DIR=/usr/local/opt/openssl@3/lib" >> $GITHUB_ENV
-            echo "OPENSSL_INCLUDE_DIR=/usr/local/opt/openssl@3/include" >> $GITHUB_ENV
           else
             echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
-            echo "OPENSSL_LIB_DIR=/opt/homebrew/opt/openssl@3/lib" >> $GITHUB_ENV
-            echo "OPENSSL_INCLUDE_DIR=/opt/homebrew/opt/openssl@3/include" >> $GITHUB_ENV
           fi
 
       - name: Install Trunk
@@ -91,19 +78,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          OPENSSL_DIR: ${{ env.OPENSSL_DIR }}
-          OPENSSL_LIB_DIR: ${{ env.OPENSSL_LIB_DIR }}
-          OPENSSL_INCLUDE_DIR: ${{ env.OPENSSL_INCLUDE_DIR }}
-          OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
-          VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
+          SQLITE3_STATIC: ${{ env.SQLITE3_STATIC }}
+          SQLITE3_NO_BUNDLED: ${{ env.SQLITE3_NO_BUNDLED }}
           SQLITE3_LIB_DIR: ${{ env.SQLITE3_LIB_DIR }}
-          SQLITE3_INCLUDE_DIR: ${{ env.SQLITE3_INCLUDE_DIR }}
           LIBSQLITE3_SYS_USE_PKG_CONFIG: ${{ env.LIBSQLITE3_SYS_USE_PKG_CONFIG }}
-          SQLITE_CFLAGS: ${{ env.SQLITE_CFLAGS }}
           MACOSX_DEPLOYMENT_TARGET: ${{ env.MACOSX_DEPLOYMENT_TARGET }}
-          PKG_CONFIG_PATH: ${{ matrix.platform == 'macos-latest' && '/usr/local/opt/openssl@3/lib/pkgconfig:/usr/local/opt/sqlite/lib/pkgconfig:/usr/local/opt/sqlcipher/lib/pkgconfig' || '' }}
-          OPENSSL_NO_VENDOR: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
-          SQLITE3_STATIC: ${{ matrix.platform == 'ubuntu-22.04' && '0' || '' }}
         with:
           tagName: v__VERSION__
           releaseName: "Release v__VERSION__"
