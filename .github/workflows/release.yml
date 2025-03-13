@@ -38,37 +38,24 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libgtk-3-dev \
             libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libsqlcipher-dev \
-            libsqlite3-dev
-          echo "SQLITE3_NO_BUNDLED=1" >> $GITHUB_ENV
-          echo "SQLITE3_STATIC=0" >> $GITHUB_ENV
+            build-essential \
+            curl \
+            wget \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
 
       - name: Install Windows dependencies
         if: matrix.platform == 'windows-latest'
         shell: bash
         run: |
           vcpkg integrate install
-          vcpkg install sqlcipher:x64-windows-static
-          echo "SQLITE3_STATIC=1" >> $GITHUB_ENV
-          echo "LIBSQLITE3_SYS_USE_PKG_CONFIG=0" >> $GITHUB_ENV
-          echo "SQLITE3_LIB_DIR=C:\vcpkg\installed\x64-windows-static\lib" >> $GITHUB_ENV
-
-      - name: Install macOS dependencies
-        if: matrix.platform == 'macos-latest'
-        run: |
-          brew update
-          brew install sqlcipher
-          echo "SQLITE3_NO_BUNDLED=1" >> $GITHUB_ENV
-          if [[ "${{ matrix.args }}" == *"x86_64"* ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=10.13" >> $GITHUB_ENV
-          else
-            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> $GITHUB_ENV
-          fi
+          vcpkg install openssl:x64-windows-static
+          echo "OPENSSL_DIR=C:\vcpkg\installed\x64-windows-static" >> $GITHUB_ENV
+          echo "OPENSSL_STATIC=1" >> $GITHUB_ENV
+          echo "VCPKGRS_DYNAMIC=1" >> $GITHUB_ENV
 
       - name: Install Trunk
         run: cargo install --locked trunk
@@ -78,11 +65,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          SQLITE3_STATIC: ${{ env.SQLITE3_STATIC }}
-          SQLITE3_NO_BUNDLED: ${{ env.SQLITE3_NO_BUNDLED }}
-          SQLITE3_LIB_DIR: ${{ env.SQLITE3_LIB_DIR }}
-          LIBSQLITE3_SYS_USE_PKG_CONFIG: ${{ env.LIBSQLITE3_SYS_USE_PKG_CONFIG }}
-          MACOSX_DEPLOYMENT_TARGET: ${{ env.MACOSX_DEPLOYMENT_TARGET }}
+          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '' }}
+          OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
+          VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
         with:
           tagName: v__VERSION__
           releaseName: "Release v__VERSION__"
