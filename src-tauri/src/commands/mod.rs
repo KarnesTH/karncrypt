@@ -1,5 +1,6 @@
 mod auth;
 mod generator;
+mod health_checker;
 mod manager;
 mod settings;
 mod setup;
@@ -15,6 +16,8 @@ pub use settings::{
 };
 
 pub use setup::{complete_setup, get_default_config};
+
+pub use health_checker::check_passwords;
 
 use std::sync::Mutex;
 

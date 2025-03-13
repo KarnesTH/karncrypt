@@ -8,11 +8,12 @@ use tauri_plugin_autostart::MacosLauncher;
 
 use commands::PasswordManagerState;
 use commands::{
-    add_password, check_update, complete_setup, create_backup, delete_password, export_passwords,
-    generate_password, get_auto_logout_time, get_database_settings, get_default_config,
-    get_default_generator_length, get_passwords, import_passwords, is_autostart_enabled, login,
-    logout, open_log_folder, register, restore_backup, save_app_settings, save_database_settings,
-    save_security_settings, toggle_autostart, update_master_password, update_password,
+    add_password, check_passwords, check_update, complete_setup, create_backup, delete_password,
+    export_passwords, generate_password, get_auto_logout_time, get_database_settings,
+    get_default_config, get_default_generator_length, get_passwords, import_passwords,
+    is_autostart_enabled, login, logout, open_log_folder, register, restore_backup,
+    save_app_settings, save_database_settings, save_security_settings, toggle_autostart,
+    update_master_password, update_password,
 };
 
 pub use password_manager::PasswordManager;
@@ -178,13 +179,10 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(|handle, event| match &event {
-            tauri::WindowEvent::Destroyed => {
-                if let Some(pm) = &*handle.state::<PasswordManagerState>().0.lock().unwrap() {
-                    pm.cleanup_on_exit().expect("error during exit cleanup");
-                }
+        .on_window_event(|handle, event| if let tauri::WindowEvent::Destroyed = &event {
+            if let Some(pm) = &*handle.state::<PasswordManagerState>().0.lock().unwrap() {
+                pm.cleanup_on_exit().expect("error during exit cleanup");
             }
-            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             login,
@@ -217,7 +215,8 @@ pub fn run() {
             save_security_settings,
             check_update,
             toggle_autostart,
-            is_autostart_enabled
+            is_autostart_enabled,
+            check_passwords
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

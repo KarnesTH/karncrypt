@@ -1,6 +1,16 @@
 use leptos::*;
+use serde::Serialize;
 
-use crate::components::icons::Icon;
+use crate::{
+    app::invoke,
+    components::{
+        icons::Icon,
+        password_health::{TableCheckItemArgs, TableCheckItems},
+    },
+};
+
+#[derive(Serialize)]
+struct GetPasswordsHealthArgs {}
 
 #[derive(Clone, PartialEq)]
 enum SortOrder {
@@ -10,6 +20,7 @@ enum SortOrder {
 
 #[component]
 pub fn Dashboard() -> impl IntoView {
+    let (passwords, set_passwords) = create_signal(Vec::<TableCheckItemArgs>::new());
     let (show_filter_dropdown, set_show_filter_dropdown) = create_signal(false);
     let (sort_order, set_sort_order) = create_signal(SortOrder::ScoreDesc);
 
@@ -19,6 +30,47 @@ pub fn Dashboard() -> impl IntoView {
     let service_icon = create_memo(move |_| "bookmark");
     let score_icon = create_memo(move |_| "chart-bar");
     let filter_icon = create_memo(move |_| "funnel");
+    let clock_icon = create_memo(move |_| "clock");
+
+    let total_count = create_memo(move |_| passwords.get().len());
+
+    let average_score = create_memo(move |_| {
+        let passwords = passwords.get();
+        if passwords.is_empty() {
+            0
+        } else {
+            passwords.iter().map(|p| p.score as usize).sum::<usize>() / passwords.len()
+        }
+    });
+
+    let password_stats = create_memo(move |_| {
+        let passwords = passwords.get();
+        let strong = passwords.iter().filter(|p| p.score >= 60).count();
+        let weak = passwords.iter().filter(|p| p.score < 40).count();
+        let duplicates = passwords
+            .iter()
+            .filter(|p| p.issues.contains(&"Duplicate".to_string()))
+            .count();
+        (strong, weak, duplicates)
+    });
+
+    let sorted_passwords = create_memo(move |_| {
+        let mut passwords = passwords.get();
+        match sort_order.get() {
+            SortOrder::ScoreDesc => passwords.sort_by(|a, b| b.score.cmp(&a.score)),
+            SortOrder::ScoreAsc => passwords.sort_by(|a, b| a.score.cmp(&b.score)),
+        }
+        passwords
+    });
+
+    spawn_local(async move {
+        let args = serde_wasm_bindgen::to_value(&GetPasswordsHealthArgs {}).unwrap();
+        let response = invoke("check_passwords", args).await;
+
+        if let Ok(passwords) = serde_wasm_bindgen::from_value::<Vec<TableCheckItemArgs>>(response) {
+            set_passwords.set(passwords);
+        }
+    });
 
     view! {
         <div class="w-full flex flex-col h-full">
@@ -47,10 +99,13 @@ pub fn Dashboard() -> impl IntoView {
                                 <div class="absolute inset-0 rounded-full border-8 border-gray-600"></div>
                                 <div
                                     class="absolute inset-0 rounded-full border-8 border-primary-100"
-                                    style="clip-path: polygon(50% 50%, 50% 0, 100% 0, 100% 100%, 0 100%, 0 0, 50% 0)"
+                                    style=move || format!("clip-path: polygon(50% 50%, 50% 0, {} 0, 100% 100%, 0 100%, 0 0, 50% 0)",
+                                        average_score.get())
                                 ></div>
                                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span class="text-4xl font-bold text-primary-100">"85"</span>
+                                    <span class="text-4xl font-bold text-primary-100">
+                                        {move || average_score.get()}
+                                    </span>
                                     <span class="text-sm text-gray-400">"Durchschnitt"</span>
                                 </div>
                             </div>
@@ -65,21 +120,27 @@ pub fn Dashboard() -> impl IntoView {
                                 <span class="text-gray-400">"Starke Passwörter"</span>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                                    <span class="text-sm">"12 von 20"</span>
+                                    <span class="text-sm">
+                                        {move || format!("{} von {}", password_stats.get().0, total_count.get())}
+                                    </span>
                                 </div>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-gray-400">"Schwache Passwörter"</span>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                                    <span class="text-sm">"8 von 20"</span>
+                                    <span class="text-sm">
+                                        {move || format!("{} von {}", password_stats.get().1, total_count.get())}
+                                    </span>
                                 </div>
                             </div>
                             <div class="flex items-center justify-between">
                                 <span class="text-gray-400">"Doppelte Passwörter"</span>
                                 <div class="flex items-center space-x-2">
                                     <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                                    <span class="text-sm">"3"</span>
+                                    <span class="text-sm">
+                                        {move || password_stats.get().2}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -133,7 +194,7 @@ pub fn Dashboard() -> impl IntoView {
                                     <th class="text-left p-4 text-gray-400 font-medium">
                                         <div class="flex items-center">
                                             <Icon icon=service_icon.into() class="w-4 h-4 mr-2" />
-                                            "Service"
+                                            "Service/Benutzer"
                                         </div>
                                     </th>
                                     <th class="text-left p-4 text-gray-400 font-medium">
@@ -145,35 +206,28 @@ pub fn Dashboard() -> impl IntoView {
                                     <th class="text-left p-4 text-gray-400 font-medium">
                                         <div class="flex items-center">
                                             <Icon icon=warning_icon.into() class="w-4 h-4 mr-2" />
-                                            "Status"
+                                            "Status & Probleme"
                                         </div>
                                     </th>
                                     <th class="text-left p-4 text-gray-400 font-medium">
                                         "Vorschläge"
                                     </th>
+                                    <th class="text-left p-4 text-gray-400 font-medium">
+                                        <div class="flex items-center">
+                                            <Icon icon=clock_icon.into() class="w-4 h-4 mr-2" />
+                                            "Letzte Änderung"
+                                        </div>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-600">
-                                <tr class="hover:bg-background-light">
-                                    <td class="p-4">"Google"</td>
-                                    <td class="p-4">
-                                        <div class="flex items-center">
-                                            <span class="text-primary-100 font-medium">"92"</span>
-                                            <div class="w-24 h-2 bg-gray-700 rounded-full ml-2">
-                                                <div class="h-2 bg-primary-100 rounded-full" style="width: 92%"></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="flex items-center">
-                                            <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                                            "Sehr stark"
-                                        </div>
-                                    </td>
-                                    <td class="p-4 text-gray-400">
-                                        "Keine Verbesserungen notwendig"
-                                    </td>
-                                </tr>
+                                {move || sorted_passwords.get().into_iter().map(|password| {
+                                    view! {
+                                        <TableCheckItems
+                                            items=password
+                                        />
+                                    }
+                                }).collect_view()}
                             </tbody>
                         </table>
                     </div>

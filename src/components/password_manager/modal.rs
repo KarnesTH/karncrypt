@@ -42,6 +42,7 @@ pub fn PasswordModal(
     let (show_password_dialog, set_show_password_dialog) = create_signal(false);
     let (decrypted_password, set_decrypted_password) = create_signal(String::new());
     let (password_verified, set_password_verified) = create_signal(false);
+    let (is_original_password, set_is_original_password) = create_signal(false);
 
     let eye_icon = create_memo(move |_| {
         if show_password.get() {
@@ -68,7 +69,14 @@ pub fn PasswordModal(
         set_password.set(item.password.clone());
         set_url.set(item.url.clone());
         set_notes.set(item.notes.clone());
+        set_is_original_password.set(true);
     }
+
+    let handle_password_change = move |new_password: String| {
+        set_password.set(new_password);
+        set_is_original_password.set(false);
+        set_password_verified.set(false);
+    };
 
     view! {
         <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 overflow-auto p-4">
@@ -142,14 +150,14 @@ pub fn PasswordModal(
                                         }
                                     }
                                     class="w-full p-2 rounded bg-background text-white border border-gray-600 focus:outline-none focus:border-primary-100 pr-20"
-                                    on:input=move |ev| set_password.set(event_target_value(&ev))
+                                    on:input=move |ev| handle_password_change(event_target_value(&ev))
                                 />
                                 <div class="absolute inset-y-0 right-0 flex">
                                     <button
                                         type="button"
                                         class="px-2 text-gray-400 hover:text-primary-100"
                                         on:click=move |_| {
-                                            if matches!(mode.get(), ModalMode::Edit(_)) && !password_verified.get() {
+                                            if matches!(mode.get(), ModalMode::Edit(_)) && is_original_password.get() && !password_verified.get() {
                                                 set_show_password_dialog.set(true);
                                             } else {
                                                 set_show_password.update(|show| *show = !*show)
@@ -173,7 +181,7 @@ pub fn PasswordModal(
                                     let response = invoke("generate_password", args).await;
 
                                     if let Ok(new_pass) = serde_wasm_bindgen::from_value(response) {
-                                        set_password.set(new_pass);
+                                        handle_password_change(new_pass);
                                     }
                                 });
                             }

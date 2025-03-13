@@ -99,7 +99,7 @@ pub async fn import_passwords(
         Some(path) => {
             let path = path.as_path().unwrap();
             let bm = BackupManager::new(&pm.db);
-            match bm.import_csv(&path) {
+            match bm.import_csv(path) {
                 Ok(result) => {
                     app.dialog()
                         .message(format!(
@@ -118,7 +118,7 @@ pub async fn import_passwords(
                 }
                 Err(e) => {
                     error!("Failed to import passwords: {}", e);
-                    return Err(e.to_string());
+                    Err(e.to_string())
                 }
             }
         }

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use lazy_static::lazy_static;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -11,10 +12,15 @@ lazy_static! {
 
 #[derive(Clone)]
 pub struct PasswordHealth {
+    pub service: String,
+    pub username: String,
+    pub last_modified: DateTime<Utc>,
     password: String,
-    length: usize,
-    pub score: u8,
     pub strength: PasswordStrength,
+    pub score: u8,
+    pub issues: Vec<PasswordIssue>,
+    pub suggestions: Vec<String>,
+    length: usize,
     has_uppercase: bool,
     has_lowercase: bool,
     has_numbers: bool,
@@ -23,7 +29,7 @@ pub struct PasswordHealth {
     sequential_chars: usize,
     unique_chars: usize,
     is_common_password: bool,
-    pub suggestions: Vec<String>,
+    is_duplicate: bool,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -35,40 +41,52 @@ pub enum PasswordStrength {
     VeryStrong,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum PasswordIssue {
+    TooWeak,
+    TooShort,
+    Common,
+    Duplicate,
+    Sequential,
+    Repeated,
+    NoSpecialChars,
+    NoNumbers,
+    NoUppercase,
+    NoLowercase,
+    Outdated,
+}
+
 impl PasswordHealth {
     /// Create a new PasswordHealth instance with the given password.
     ///
     /// # Arguments
     ///
     /// * `password` - The password to analyze.
-    pub fn new(password: &str) -> Self {
-        let length = password.len();
-        let score = 0;
-        let strength = PasswordStrength::VeryWeak;
-        let has_uppercase = false;
-        let has_lowercase = false;
-        let has_numbers = false;
-        let has_special_chars = false;
-        let repeated_chars = 0;
-        let sequential_chars = 0;
-        let unique_chars = 0;
-        let is_common_password = false;
-        let suggestions = Vec::new();
-
-        PasswordHealth {
+    pub fn new(
+        service: String,
+        username: String,
+        password: &str,
+        last_modified: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            service,
+            username,
+            last_modified,
             password: password.to_string(),
-            length,
-            score,
-            strength,
-            has_uppercase,
-            has_lowercase,
-            has_numbers,
-            has_special_chars,
-            repeated_chars,
-            sequential_chars,
-            unique_chars,
-            is_common_password,
-            suggestions,
+            strength: PasswordStrength::VeryWeak,
+            score: 0,
+            issues: Vec::new(),
+            suggestions: Vec::new(),
+            length: password.len(),
+            has_uppercase: false,
+            has_lowercase: false,
+            has_numbers: false,
+            has_special_chars: false,
+            repeated_chars: 0,
+            sequential_chars: 0,
+            unique_chars: 0,
+            is_common_password: false,
+            is_duplicate: false,
         }
     }
 
@@ -86,6 +104,8 @@ impl PasswordHealth {
         self.check_character_types();
         self.check_complexity();
         self.check_common_password();
+        self.check_age();
+        self.collect_issues();
         self.determine_strength();
         Ok(self)
     }
@@ -205,9 +225,7 @@ impl PasswordHealth {
             let c2 = chars[i + 1] as u32;
             let c3 = chars[i + 2] as u32;
 
-            if c2 == c1 + 1 && c3 == c2 + 1 {
-                sequences += 1;
-            } else if c2 == c1 - 1 && c3 == c2 - 1 {
+            if (c2 == c1 + 1 && c3 == c2 + 1) || (c2 == c1 - 1 && c3 == c2 - 1) {
                 sequences += 1;
             }
         }
@@ -298,25 +316,88 @@ impl PasswordHealth {
     pub fn get_suggestions(&self) -> &[String] {
         &self.suggestions
     }
+
+    fn collect_issues(&mut self) {
+        if self.length < 8 {
+            self.issues.push(PasswordIssue::TooShort);
+        }
+        if !self.has_special_chars {
+            self.issues.push(PasswordIssue::NoSpecialChars);
+        }
+        if !self.has_numbers {
+            self.issues.push(PasswordIssue::NoNumbers);
+        }
+        if !self.has_uppercase {
+            self.issues.push(PasswordIssue::NoUppercase);
+        }
+        if !self.has_lowercase {
+            self.issues.push(PasswordIssue::NoLowercase);
+        }
+        if self.score <= 20 {
+            self.issues.push(PasswordIssue::TooWeak);
+        }
+    }
+
+    fn check_age(&mut self) {
+        let age = Utc::now() - self.last_modified;
+        if age.num_days() > 90 {
+            self.issues.push(PasswordIssue::Outdated);
+            self.suggestions.push("Passwort ist älter als 90 Tage. Ein regelmäßiger Passwortwechsel erhöht die Sicherheit.".to_string());
+        }
+    }
+
+    pub fn is_duplicate(&mut self, other_passwords: &[String]) {
+        self.is_duplicate = other_passwords.contains(&self.password);
+        if self.is_duplicate {
+            self.issues.push(PasswordIssue::Duplicate);
+            self.suggestions.push("Dieses Passwort wird mehrfach verwendet. Nutze für jeden Service ein einzigartiges Passwort.".to_string());
+        }
+    }
+
+    pub fn set_duplicate(&mut self, is_duplicate: bool) {
+        self.is_duplicate = is_duplicate;
+        if is_duplicate {
+            self.issues.push(PasswordIssue::Duplicate);
+            self.suggestions.push(
+                    "Dieses Passwort wird mehrfach verwendet. Nutze für jeden Service ein einzigartiges Passwort."
+                        .to_string(),
+                );
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn test_weak_password() {
-        let mut health = PasswordHealth::new("password");
+        let mut health = PasswordHealth::new(
+            "TestService".to_string(),
+            "TestUser".to_string(),
+            "password",
+            Utc::now(),
+        );
         health.analyze().unwrap();
+
         assert_eq!(health.get_score(), 0);
         assert_eq!(*health.get_strength(), PasswordStrength::VeryWeak);
+        assert!(health.issues.contains(&PasswordIssue::TooWeak));
+        assert!(health.issues.contains(&PasswordIssue::NoSpecialChars));
         println!("Weak password score: {}", health.get_score());
+        println!("Issues: {:?}", health.issues);
         println!("Suggestions: {:?}", health.get_suggestions());
     }
 
     #[test]
     fn test_medium_password() {
-        let mut health = PasswordHealth::new("Password123");
+        let mut health = PasswordHealth::new(
+            "Test".to_string(),
+            "TestUser".to_string(),
+            "Password123",
+            Utc::now(),
+        );
         health.analyze().unwrap();
         println!("Medium password score: {}", health.get_score());
         println!("Suggestions: {:?}", health.get_suggestions());
@@ -324,7 +405,12 @@ mod tests {
 
     #[test]
     fn test_strong_password() {
-        let mut health = PasswordHealth::new("P@ssw0rd!2023#");
+        let mut health = PasswordHealth::new(
+            "Test".to_string(),
+            "TestUser".to_string(),
+            "P@ssw0rd!2023#",
+            Utc::now(),
+        );
         health.analyze().unwrap();
         println!("Strong password score: {}", health.get_score());
         println!("Suggestions: {:?}", health.get_suggestions());
@@ -332,7 +418,12 @@ mod tests {
 
     #[test]
     fn test_repeated_chars() {
-        let mut health = PasswordHealth::new("aaaPassword123!");
+        let mut health = PasswordHealth::new(
+            "Test".to_string(),
+            "TestUser".to_string(),
+            "aaaPassword123!",
+            Utc::now(),
+        );
         health.analyze().unwrap();
         println!("Password with repeats score: {}", health.get_score());
         println!("Suggestions: {:?}", health.get_suggestions());
@@ -340,7 +431,12 @@ mod tests {
 
     #[test]
     fn test_sequential_chars() {
-        let mut health = PasswordHealth::new("abc123Password!");
+        let mut health = PasswordHealth::new(
+            "Test".to_string(),
+            "TestUser".to_string(),
+            "abc123Password!",
+            Utc::now(),
+        );
         health.analyze().unwrap();
         println!("Password with sequences score: {}", health.get_score());
         println!("Suggestions: {:?}", health.get_suggestions());
@@ -348,7 +444,12 @@ mod tests {
 
     #[test]
     fn test_perfect_password() {
-        let mut health = PasswordHealth::new("Kx9$-mN7#pL4@jR2&vB5!");
+        let mut health = PasswordHealth::new(
+            "Test".to_string(),
+            "TestUser".to_string(),
+            "Kx9$-mN7#pL4@jR2&vB5!",
+            Utc::now(),
+        );
         health.analyze().unwrap();
         println!("Perfect password score: {}", health.get_score());
         println!("Perfect password strength: {:?}", health.get_strength());
@@ -359,5 +460,33 @@ mod tests {
             PasswordStrength::VeryStrong
         ));
         assert!(health.get_suggestions().is_empty());
+    }
+
+    #[test]
+    fn test_duplicate_password() {
+        let mut health = PasswordHealth::new(
+            "TestService".to_string(),
+            "TestUser".to_string(),
+            "Test123!@#",
+            Utc::now(),
+        );
+        health.analyze().unwrap();
+        health.is_duplicate(&vec!["Test123!@#".to_string(), "Test123!@#".to_string()]);
+
+        assert!(health.issues.contains(&PasswordIssue::Duplicate));
+    }
+
+    #[test]
+    fn test_outdated_password() {
+        let old_date = Utc::now() - chrono::Duration::days(100);
+        let mut health = PasswordHealth::new(
+            "TestService".to_string(),
+            "TestUser".to_string(),
+            "Test123!@#",
+            old_date,
+        );
+        health.analyze().unwrap();
+
+        assert!(health.issues.contains(&PasswordIssue::Outdated));
     }
 }

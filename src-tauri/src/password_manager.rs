@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
+use chrono::Utc;
 use ring::rand::{SecureRandom, SystemRandom};
 
 use crate::{
@@ -510,11 +513,69 @@ impl PasswordManager {
     /// If the password health cannot be checked.
     pub fn check_password_health(
         &self,
+        service: &str,
+        username: &str,
         password: &str,
     ) -> Result<PasswordHealth, Box<dyn std::error::Error>> {
-        let mut health = PasswordHealth::new(password);
+        let mut health = PasswordHealth::new(
+            service.to_string(),
+            username.to_string(),
+            password,
+            Utc::now(),
+        );
         health.analyze()?;
+
         Ok(health)
+    }
+
+    /// Check the health of all passwords.
+    ///
+    /// # Returns
+    ///
+    /// A Result containing a vector of password healths or an error.
+    ///
+    /// # Errors
+    ///
+    /// If the password healths cannot be checked.
+    pub fn check_passwords_health(
+        &self,
+    ) -> Result<Vec<PasswordHealth>, Box<dyn std::error::Error>> {
+        let passwords = self.get_passwords()?;
+        let mut healths = Vec::new();
+        let mut raw_passwords = Vec::new();
+
+        for password in &passwords {
+            let decoded = STANDARD.decode(password.password.as_bytes()).unwrap();
+            let decrypted = self.db.encryption.decrypt(&decoded).unwrap();
+            raw_passwords.push(decrypted.clone());
+        }
+
+        let mut password_counts = HashMap::new();
+        for pw in &raw_passwords {
+            *password_counts.entry(pw.clone()).or_insert(0) += 1;
+        }
+
+        for (_, password) in passwords.iter().enumerate() {
+            let decoded = STANDARD.decode(password.password.as_bytes()).unwrap();
+            let decrypted = self.db.encryption.decrypt(&decoded).unwrap();
+
+            let mut health = PasswordHealth::new(
+                password.service.clone(),
+                password.username.clone(),
+                &decrypted,
+                password.updated_at.parse()?,
+            );
+
+            health.analyze()?;
+
+            if password_counts.get(&decrypted).unwrap_or(&0) > &1 {
+                health.set_duplicate(true);
+            }
+
+            healths.push(health);
+        }
+
+        Ok(healths)
     }
 }
 

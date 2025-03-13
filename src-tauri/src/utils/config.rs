@@ -222,7 +222,7 @@ impl Config {
         let db_dir = &self.database.db_path;
 
         if !db_dir.exists() {
-            std::fs::create_dir_all(&db_dir)?;
+            std::fs::create_dir_all(db_dir)?;
         }
 
         Ok(db_dir)
@@ -243,7 +243,7 @@ impl Config {
         let backup_dir = &self.backup.backup_path;
 
         if !backup_dir.exists() {
-            std::fs::create_dir_all(&backup_dir)?;
+            std::fs::create_dir_all(backup_dir)?;
         }
 
         Ok(backup_dir)
