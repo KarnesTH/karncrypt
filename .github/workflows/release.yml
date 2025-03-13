@@ -48,6 +48,8 @@ jobs:
             libsqlite3-dev \
             openssl \
             libssl-dev
+          echo "OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=/usr/include/openssl" >> $GITHUB_ENV
 
       - name: Install OpenSSL (Windows)
         if: matrix.platform == 'windows-latest'
@@ -64,6 +66,10 @@ jobs:
         run: |
           brew update
           brew install openssl@3 sqlite3 sqlcipher
+          echo "OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix sqlite)/lib/pkgconfig:$(brew --prefix sqlcipher)/lib/pkgconfig" >> $GITHUB_ENV
 
       - name: Install Trunk
         run: cargo install --locked trunk
@@ -73,11 +79,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '' }}
+          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || env.OPENSSL_ROOT_DIR }}
+          OPENSSL_LIB_DIR: ${{ env.OPENSSL_LIB_DIR }}
+          OPENSSL_INCLUDE_DIR: ${{ env.OPENSSL_INCLUDE_DIR }}
           OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
           VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
-          OPENSSL_ROOT_DIR: ${{ matrix.platform == 'macos-latest' && '/usr/local/opt/openssl@3' || '' }}
-          PKG_CONFIG_PATH: ${{ matrix.platform == 'macos-latest' && '/usr/local/opt/openssl@3/lib/pkgconfig:/usr/local/opt/sqlite/lib/pkgconfig:/usr/local/opt/sqlcipher/lib/pkgconfig' || '' }}
+          PKG_CONFIG_PATH: ${{ env.PKG_CONFIG_PATH }}
           OPENSSL_NO_VENDOR: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
           SQLITE3_STATIC: ${{ matrix.platform == 'ubuntu-22.04' && '0' || '' }}
           SQLITE3_LIB_DIR: ${{ matrix.platform == 'ubuntu-22.04' && '/usr/lib/x86_64-linux-gnu' || '' }}
