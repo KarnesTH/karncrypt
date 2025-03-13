@@ -73,11 +73,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '/usr/local/opt/openssl@3' }}
+          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '' }}
           OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
           VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
+          OPENSSL_ROOT_DIR: ${{ matrix.platform == 'macos-latest' && '/usr/local/opt/openssl@3' || '' }}
           PKG_CONFIG_PATH: ${{ matrix.platform == 'macos-latest' && '/usr/local/opt/openssl@3/lib/pkgconfig:/usr/local/opt/sqlite/lib/pkgconfig:/usr/local/opt/sqlcipher/lib/pkgconfig' || '' }}
           OPENSSL_NO_VENDOR: ${{ matrix.platform == 'ubuntu-22.04' && '1' || '' }}
+          SQLITE3_STATIC: ${{ matrix.platform == 'ubuntu-22.04' && '0' || '' }}
+          SQLITE3_LIB_DIR: ${{ matrix.platform == 'ubuntu-22.04' && '/usr/lib/x86_64-linux-gnu' || '' }}
         with:
           tagName: v__VERSION__
           releaseName: "Release v__VERSION__"
