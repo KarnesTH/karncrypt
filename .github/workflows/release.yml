@@ -53,7 +53,11 @@ jobs:
       - name: Install macOS dependencies
         if: matrix.platform == 'macos-latest'
         run: |
-          brew install openssl@3
+          if [ "${{ matrix.args }}" = "--target x86_64-apple-darwin" ]; then
+            arch -x86_64 brew install openssl@3
+          else
+            brew install openssl@3
+          fi
           echo 'OPENSSL_DIR="/opt/homebrew/opt/openssl@3"' >> $GITHUB_ENV
 
       - name: Install Windows dependencies
