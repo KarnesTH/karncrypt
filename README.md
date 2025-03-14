@@ -2,6 +2,8 @@
 
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/KarnesTH/karncrypt)
 
+![karncrypt_logo](images/karncrypt.png)
+
 A secure, offline password manager built with Rust, Tauri and Leptos.
 
 ## 🎯 About
