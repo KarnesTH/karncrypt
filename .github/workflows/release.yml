@@ -54,7 +54,7 @@ jobs:
         if: matrix.platform == 'macos-latest'
         run: |
           brew install openssl@3
-          echo 'OPENSSL_DIR="/usr/local/opt/openssl@3"' >> $GITHUB_ENV
+          echo 'OPENSSL_DIR="/opt/homebrew/opt/openssl@3"' >> $GITHUB_ENV
 
       - name: Install Windows dependencies
         if: matrix.platform == 'windows-latest'
@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || '/usr/local/opt/openssl@3' }}
+          OPENSSL_DIR: ${{ matrix.platform == 'windows-latest' && 'C:\vcpkg\installed\x64-windows-static' || (matrix.platform == 'macos-latest' && '/opt/homebrew/opt/openssl@3' || '/usr') }}
           OPENSSL_STATIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
           VCPKGRS_DYNAMIC: ${{ matrix.platform == 'windows-latest' && '1' || '' }}
         with:

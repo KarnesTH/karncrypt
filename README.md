@@ -27,10 +27,10 @@ The application is in active development. The core functionality is complete and
 - ✅ Backup & Export/Import system
 - ✅ Settings menu
 - ✅ Auto-updates
+- ✅ Password health check
 
 ## 📝 Planned Features
 
-- 🏥 Password health check
 - 🎨 Theme support
 - 🌍 Multi-language support (currently German only)
 
